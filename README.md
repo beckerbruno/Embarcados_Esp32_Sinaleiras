@@ -42,7 +42,31 @@ const char* MQTT_BROKER   = "broker.hivemq.com";
 |---|---|
 | GPIO 21 | SDA (I2C) |
 | GPIO 22 | SCL (I2C) |
-| GPIO 15 | Botão pedestre (pull-up) |
+| GPIO 15 | Botão pedestre (pull-up interno) |
+| 3V3 | Alimentação dos módulos |
+| GND | Terra comum |
+
+### Conexões Físicas
+
+#### LEDs da Sinaleira (4 cabos cada módulo)
+
+| Cabo | Conexão |
+|---|---|
+| VCC | Não conectado / Reservado |
+| SDA | GPIO 21 (SDA) - Dados I2C |
+| SCL | GPIO 22 (SCL) - Clock I2C |
+| 3V3 | 3V3 da ESP32 |
+
+> Os módulos de LED são endereçáveis via I2C (endereços 0x38 e 0x39)
+
+#### Botão Pedestre
+
+| Fio | Conexão |
+|---|---|
+| Fio 1 | GPIO 15 |
+| Fio 2 | GND |
+
+> O botão usa o **pull-up interno** da ESP32. Quando pressionado, o GPIO 15 vai para LOW.
 
 ### PCF8574 — Mapeamento de LEDs
 
