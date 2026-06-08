@@ -26,6 +26,54 @@ t3/
 ### Pré-requisitos
 - VS Code + extensão PlatformIO
 
+### Como abrir o projeto no VS Code
+
+⚠️ **IMPORTANTE:** Abra **somente** a pasta `firmware/`, não a pasta raiz `t3/`.
+
+1. **Abra o VS Code**
+2. Clique em **File → Open Folder...** (ou `Ctrl+K Ctrl+O`)
+3. Navegue até o projeto e selecione a pasta **`firmware/`**
+4. Clique em **Open**
+
+> A estrutura deve ficar assim no Explorer:
+> ```
+> FIRMWARE
+> ├── .pio/
+> ├── .vscode/
+> ├── include/
+> ├── lib/
+> ├── src/
+> │   └── main.cpp
+> └── platformio.ini
+> ```
+
+5. Aguarde a extensão PlatformIO inicializar (veja o rodapé do VS Code)
+6. Pronto! O ícone da **Alien 🐜** deve aparecer na barra lateral esquerda
+
+### Compilar e Gravar
+
+Use os botões na barra inferior do VS Code:
+
+| Botão | Ação |
+|---|---|
+| ✓ | **Build** — Compilar o projeto |
+| → | **Upload** — Gravar na ESP32 |
+| 🗑 | **Clean** — Limpar build |
+| 📟 | **Serial Monitor** — Monitor serial (115200 baud) |
+
+Ou use o terminal:
+
+```bash
+# Compilar
+pio run
+
+# Gravar na ESP32
+pio run --target upload
+
+# Monitor serial (115200 baud)
+pio device monitor --baud 115200
+```
+
 ### Configurar credenciais
 
 Edite as primeiras linhas de `firmware/src/main.cpp`:
@@ -132,16 +180,26 @@ pio device monitor   # 115200 baud
 
 ---
 
-## 3. Tópicos MQTT
+## 3. Tópicos MQTT (Protocolo do Amigo)
 
 | Direção | Tópico | Conteúdo |
 |---|---|---|
-| Publish | `semaforo/saturnino/status` | `VERDE` / `AMARELO` / `VERMELHO` |
-| Publish | `semaforo/protasio/status`  | `VERDE` / `AMARELO` / `VERMELHO` |
-| Publish | `semaforo/pedestre/status`  | `LIVRE` / `AGUARDANDO` / `ATRAVESSANDO` |
-| Publish | `semaforo/modo`             | `NORMAL` / `ATENCAO` |
-| Subscribe | `semaforo/comando/modo`   | `ATENCAO` / `NORMAL` |
-| Subscribe | `semaforo/comando/pedestre` | `SOLICITAR` |
+| Publish (ESP envia) | `embarcados/pucrs/semaforo/status` | JSON com `s1` a `s5`, `pedestre`, `modo` |
+| Subscribe (ESP recebe) | `embarcados/pucrs/semaforo/comando` | `{"modo": "NORMAL"}` ou `{"modo": "PISCANTE"}` |
+
+### Exemplo de payload de status
+
+```json
+{
+  "s1": "VERDE",
+  "s2": "VERMELHO",
+  "s3": "VERMELHO",
+  "s4": "VERDE",
+  "s5": "VERMELHO",
+  "pedestre": false,
+  "modo": "NORMAL"
+}
+```
 
 ---
 
@@ -149,26 +207,75 @@ pio device monitor   # 115200 baud
 
 ### Pré-requisitos
 
+1. **Python 3.8+** instalado
+   - macOS: `python3` já vem instalado ou instale via [python.org](https://python.org)
+   - Windows: instale via [python.org](https://python.org) (marque "Add to PATH")
+
+2. **Criar ambiente virtual e instalar dependências:**
+
+**No macOS (recomendado):**
 ```bash
-pip install -r supervisorio/requirements.txt
+cd supervisorio
+python3 -m venv venv                    # Cria ambiente virtual
+source venv/bin/activate                # Ativa o ambiente
+pip install -r requirements.txt         # Instala dependências
 ```
 
-### Executar
+> Após a primeira vez, basta ativar: `source venv/bin/activate`
+
+**No Windows:**
+```bash
+cd supervisorio
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### Como executar
+
+1. **Abra um terminal** na pasta `supervisorio/`
 
 ```bash
 cd supervisorio
+```
+
+2. **Ative o ambiente virtual:**
+
+```bash
+# No macOS/Linux:
+source venv/bin/activate
+
+# No Windows:
+venv\Scripts\activate
+```
+
+3. **Execute o supervisório:**
+
+```bash
 python main.py
 ```
 
+> ⚠️ Certifique-se de que o arquivo `supervisorio.ui` está na mesma pasta que `main.py`
+
+4. **Conecte ao broker:**
+   - Clique no botão **"Conectar"**
+   - O supervisório se conectará automaticamente ao `broker.hivemq.com:1883`
+
 ### Funcionalidades da interface
 
-- **Status visual** de cada semáforo (emojis 🔴🟡🟢) em tempo real via MQTT
-- **Status do pedestre** (LIVRE / AGUARDANDO / ATRAVESSANDO)
-- **Botão "Solicitar Travessia"** — simula o botão físico pelo supervisório
-- **Botão "⚠ Amarelo Piscante"** — ativa modo atenção em todos os semáforos
-- **Botão "▶ Retomar Normal"** — volta ao ciclo normal
+- **Status visual** de cada semáforo S1-S5 (emojis 🔴🟡🟢) em tempo real via MQTT
+- **Status do pedestre** (ACIONADO / NÃO ACIONADO)
+- **Modo de operação:** NORMAL ou PISCANTE (checkbox)
 - **Log de eventos** com timestamp
-- **Campo configurável** de broker/porta
+- **Botão Conectar/Desconectar** do broker MQTT
+
+### Ordem de execução
+
+1. ✅ Ligar a ESP32 (com firmware gravado)
+2. ✅ Verificar no monitor serial que conectou ao Wi-Fi e MQTT
+3. ✅ Executar o supervisório: `python main.py`
+4. ✅ Clicar em **"Conectar"** no supervisório
+5. ✅ Pronto! Os dados começarão a aparecer automaticamente
 
 ---
 
