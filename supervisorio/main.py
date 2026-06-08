@@ -56,31 +56,75 @@ class MqttWorker(QtCore.QThread):
         self.broker  = broker
         self.porta   = porta
         self.signals = signals
-        self.client  = mqtt.Client(client_id="supervisorio_t3")
+        self._mutex  = QtCore.QMutex()
+        self._running = True
+        
+        # Criar client com callback API version 1 (compatível com código existente)
+        # clean_session=False mantém subscriptions após reconexão
+        self.client  = mqtt.Client(
+            mqtt.CallbackAPIVersion.VERSION1, 
+            client_id="supervisorio_t3",
+            clean_session=False
+        )
 
         self.client.on_connect    = self._on_connect
         self.client.on_disconnect = self._on_disconnect
         self.client.on_message    = self._on_message
 
     def run(self):
-        self.client.connect(self.broker, self.porta, keepalive=60)
-        self.client.loop_forever()
+        while self._running:
+            try:
+                if not self.client.is_connected():
+                    print(f"[MQTT] Conectando a {self.broker}:{self.porta}...")
+                    self.client.connect(self.broker, self.porta, keepalive=120)
+                    self.client.loop_start()
+                    # Aguardar enquanto conectado
+                    while self.client.is_connected() and self._running:
+                        self.msleep(100)
+                    self.client.loop_stop()
+                else:
+                    self.msleep(1000)
+            except Exception as e:
+                print(f"[MQTT] Erro: {e}")
+                self.signals.desconectado.emit()
+                self.msleep(3000)  # Esperar 3s antes de reconectar
+        
+        try:
+            self.client.loop_stop()
+            self.client.disconnect()
+        except:
+            pass
 
     def stop(self):
-        self.client.disconnect()
-        self.quit()
+        self._running = False
+        self.wait(2000)
 
     def publish(self, topic: str, payload: str):
-        self.client.publish(topic, payload)
+        with QtCore.QMutexLocker(self._mutex):
+            if self.client.is_connected():
+                try:
+                    self.client.publish(topic, payload, qos=1)
+                    return True
+                except Exception as e:
+                    print(f"[MQTT] Erro ao publicar: {e}")
+                    return False
+            else:
+                print("[MQTT] Não conectado - comando não enviado")
+                return False
 
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
-            client.subscribe(TOPIC_STATUS)
+            print("[MQTT] Conectado ao broker")
+            client.subscribe(TOPIC_STATUS, qos=1)
             self.signals.conectado.emit()
         else:
-            self.signals.desconectado.emit()
+            print(f"[MQTT] Falha na conexão: rc={rc}")
 
     def _on_disconnect(self, client, userdata, rc):
+        if rc != 0:
+            print(f"[MQTT] Desconectado inesperadamente: rc={rc}")
+        else:
+            print("[MQTT] Desconectado normalmente")
         self.signals.desconectado.emit()
 
     def _on_message(self, client, userdata, msg):

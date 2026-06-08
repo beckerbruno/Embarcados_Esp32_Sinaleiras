@@ -223,6 +223,8 @@ void connectWiFi()
 
 void connectMQTT()
 {
+	mqttClient.setKeepAlive(60);  // Keepalive de 60 segundos
+	
 	while (!mqttClient.connected())
 	{
 		Serial.print("[MQTT] Conectando ao broker...");
