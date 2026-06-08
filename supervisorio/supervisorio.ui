@@ -59,13 +59,17 @@ QLineEdit {
     <property name="spacing">
      <number>8</number>
     </property>
-    <property name="contentsMargins">
-     <rect>
-      <x>12</x>
-      <y>12</y>
-      <width>-1</width>
-      <height>-1</height>
-     </rect>
+    <property name="leftMargin">
+     <number>12</number>
+    </property>
+    <property name="topMargin">
+     <number>12</number>
+    </property>
+    <property name="rightMargin">
+     <number>12</number>
+    </property>
+    <property name="bottomMargin">
+     <number>12</number>
     </property>
 
     <!-- Título -->
@@ -233,11 +237,6 @@ QLineEdit {
            <property name="styleSheet"><string>color: #a6e3a1; font-weight: bold; font-size: 13px;</string></property>
           </widget>
          </item>
-         <item>
-          <widget class="QPushButton" name="btn_pedestre">
-           <property name="text"><string>🚶 Solicitar Travessia</string></property>
-          </widget>
-         </item>
         </layout>
        </widget>
       </item>
@@ -255,15 +254,9 @@ QLineEdit {
           </widget>
          </item>
          <item>
-          <widget class="QPushButton" name="btn_atencao">
-           <property name="text"><string>⚠ Amarelo Piscante</string></property>
-           <property name="styleSheet"><string>background-color: #f9e2af; color: #1e1e2e; font-weight: bold;</string></property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="btn_normal">
-           <property name="text"><string>▶ Retomar Normal</string></property>
-           <property name="styleSheet"><string>background-color: #a6e3a1; color: #1e1e2e; font-weight: bold;</string></property>
+          <widget class="QCheckBox" name="chk_piscante">
+           <property name="text"><string>Modo Piscante</string></property>
+           <property name="styleSheet"><string>color: #f9e2af; font-size: 14px; font-weight: bold;</string></property>
           </widget>
          </item>
          <item>
