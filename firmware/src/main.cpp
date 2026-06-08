@@ -7,8 +7,8 @@
 // ============================================================
 // Configurações de rede e MQTT
 // ============================================================
-const char* WIFI_SSID     = "SEU_WIFI";
-const char* WIFI_PASSWORD = "SUA_SENHA";
+const char* WIFI_SSID     = "Tim fibra 5G";
+const char* WIFI_PASSWORD = "";
 const char* MQTT_BROKER   = "broker.hivemq.com";
 const int   MQTT_PORT     = 1883;
 const char* MQTT_CLIENT   = "esp32_semaforos_t3";
