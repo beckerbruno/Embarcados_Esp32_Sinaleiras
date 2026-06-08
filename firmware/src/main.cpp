@@ -35,30 +35,36 @@ const char *TOPIC_CMD_PEDESTRE = "semaforo/comando/pedestre"; // SOLICITAR (simu
 
 // ============================================================
 // PCF8574
-// Chip 1 (0x38) — Semáforo da Av. Saturnino de Brito
-//   P0=VM_SAT, P1=AM_SAT, P2=VD_SAT
-//   P3=VM_PED, P4=VD_PED  (semáforo de pedestre)
+// Chip 1 (0x38)
+//   P0..P2 = sinaleira 1 (vermelho, amarelo, verde)
+//   P3..P5 = sinaleira 2 (vermelho, amarelo, verde)
+//   P6      = verde da sinaleira 3
+//   P7      = led do pedestre
 //
-// Chip 2 (0x39) — Semáforo da Av. Protásio Alves
-//   P0=VM_PRO, P1=AM_PRO, P2=VD_PRO
-//   P3..P7 livres
+// Chip 2 (0x39)
+//   P0 = amarelo da sinaleira 3
+//   P1 = vermelho da sinaleira 3
+//   P2..P4 = sinaleira 4 (vermelho, amarelo, verde)
+//   P5..P7 = sinaleira 5 (vermelho, amarelo, verde)
 //
 // ATENÇÃO: saída do PCF8574 ligada ao CÁTODO → LOW = LED ACESO
 // ============================================================
 PCF8574 chip1(0x38);
 PCF8574 chip2(0x39);
 
-// Pinos do chip1
-#define SAT_VM 0
-#define SAT_AM 1
-#define SAT_VD 2
-#define PED_VM 3
-#define PED_VD 4
+// Pinagem do chip1
+#define S1_VM 0
+#define S1_AM 1
+#define S1_VD 2
+#define S2_VM 3
+#define S2_AM 4
+#define S2_VD 5
+#define S3_VD 6
+#define PED_LED 7
 
-// Pinos do chip2
-#define PRO_VM 0
-#define PRO_AM 1
-#define PRO_VD 2
+// Pinagem do chip2
+#define S3_AM 0
+#define S3_VM 1
 
 // ============================================================
 // Temporização (ms)
