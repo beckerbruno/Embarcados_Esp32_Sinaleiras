@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>860</width>
+    <height>620</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Supervisório de Semáforos — Saturnino de Brito x Protásio Alves</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QMainWindow { background-color: #1e1e2e; }
+QWidget#centralwidget { background-color: #1e1e2e; }
+QLabel { color: #cdd6f4; font-family: 'Segoe UI'; }
+QPushButton {
+    background-color: #313244;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-size: 13px;
+}
+QPushButton:hover { background-color: #45475a; }
+QPushButton:pressed { background-color: #585b70; }
+QGroupBox {
+    color: #89b4fa;
+    font-size: 13px;
+    font-weight: bold;
+    border: 1px solid #45475a;
+    border-radius: 8px;
+    margin-top: 10px;
+    padding-top: 6px;
+}
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }
+QTextEdit {
+    background-color: #181825;
+    color: #a6e3a1;
+    font-family: 'Consolas', monospace;
+    font-size: 11px;
+    border: 1px solid #45475a;
+    border-radius: 4px;
+}
+QLineEdit {
+    background-color: #313244;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+    border-radius: 4px;
+    padding: 4px;
+}
+</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <layout class="QVBoxLayout" name="verticalLayout_main">
+    <property name="spacing">
+     <number>8</number>
+    </property>
+    <property name="contentsMargins">
+     <rect>
+      <x>12</x>
+      <y>12</y>
+      <width>-1</width>
+      <height>-1</height>
+     </rect>
+    </property>
+
+    <!-- Título -->
+    <item>
+     <widget class="QLabel" name="lbl_titulo">
+      <property name="text">
+       <string>🚦 Supervisório de Semáforos — Cruzamento Saturnino de Brito × Protásio Alves</string>
+      </property>
+      <property name="styleSheet">
+       <string>font-size: 15px; font-weight: bold; color: #89b4fa; padding: 4px;</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
+    </item>
+
+    <!-- Linha de conexão -->
+    <item>
+     <layout class="QHBoxLayout" name="hbox_conn">
+      <item>
+       <widget class="QLabel" name="lbl_broker">
+        <property name="text"><string>Broker MQTT:</string></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="edit_broker">
+        <property name="text"><string>broker.hivemq.com</string></property>
+        <property name="maximumWidth"><number>200</number></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lbl_port">
+        <property name="text"><string>Porta:</string></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="edit_port">
+        <property name="text"><string>1883</string></property>
+        <property name="maximumWidth"><number>60</number></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="btn_conectar">
+        <property name="text"><string>Conectar</string></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="lbl_conn_status">
+        <property name="text"><string>● Desconectado</string></property>
+        <property name="styleSheet"><string>color: #f38ba8; font-weight: bold;</string></property>
+       </widget>
+      </item>
+      <item>
+       <spacer>
+        <property name="orientation"><enum>Qt::Horizontal</enum></property>
+        <property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property>
+       </spacer>
+      </item>
+     </layout>
+    </item>
+
+    <!-- Painel principal: semáforos + controles -->
+    <item>
+     <layout class="QHBoxLayout" name="hbox_main">
+      <property name="spacing"><number>12</number></property>
+
+      <!-- Semáforo Saturnino -->
+      <item>
+       <widget class="QGroupBox" name="grp_sat">
+        <property name="title"><string>Av. Saturnino de Brito</string></property>
+        <layout class="QVBoxLayout">
+         <item>
+          <widget class="QLabel" name="led_sat_vm">
+           <property name="text"><string>🔴</string></property>
+           <property name="alignment"><set>Qt::AlignCenter</set></property>
+           <property name="styleSheet"><string>font-size: 40px;</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="led_sat_am">
+           <property name="text"><string>⚫</string></property>
+           <property name="alignment"><set>Qt::AlignCenter</set></property>
+           <property name="styleSheet"><string>font-size: 40px;</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="led_sat_vd">
+           <property name="text"><string>⚫</string></property>
+           <property name="alignment"><set>Qt::AlignCenter</set></property>
+           <property name="styleSheet"><string>font-size: 40px;</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="lbl_sat_status">
+           <property name="text"><string>VERMELHO</string></property>
+           <property name="alignment"><set>Qt::AlignCenter</set></property>
+           <property name="styleSheet"><string>color: #f38ba8; font-weight: bold; font-size: 13px;</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+
+      <!-- Semáforo Protásio -->
+      <item>
+       <widget class="QGroupBox" name="grp_pro">
+        <property name="title"><string>Av. Protásio Alves</string></property>
+        <layout class="QVBoxLayout">
+         <item>
+          <widget class="QLabel" name="led_pro_vm">
+           <property name="text"><string>🔴</string></property>
+           <property name="alignment"><set>Qt::AlignCenter</set></property>
+           <property name="styleSheet"><string>font-size: 40px;</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="led_pro_am">
+           <property name="text"><string>⚫</string></property>
+           <property name="alignment"><set>Qt::AlignCenter</set></property>
+           <property name="styleSheet"><string>font-size: 40px;</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="led_pro_vd">
+           <property name="text"><string>⚫</string></property>
+           <property name="alignment"><set>Qt::AlignCenter</set></property>
+           <property name="styleSheet"><string>font-size: 40px;</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="lbl_pro_status">
+           <property name="text"><string>VERMELHO</string></property>
+           <property name="alignment"><set>Qt::AlignCenter</set></property>
+           <property name="styleSheet"><string>color: #f38ba8; font-weight: bold; font-size: 13px;</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+
+      <!-- Semáforo Pedestre -->
+      <item>
+       <widget class="QGroupBox" name="grp_ped">
+        <property name="title"><string>Pedestre</string></property>
+        <layout class="QVBoxLayout">
+         <item>
+          <widget class="QLabel" name="led_ped_vm">
+           <property name="text"><string>🔴</string></property>
+           <property name="alignment"><set>Qt::AlignCenter</set></property>
+           <property name="styleSheet"><string>font-size: 40px;</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="led_ped_vd">
+           <property name="text"><string>⚫</string></property>
+           <property name="alignment"><set>Qt::AlignCenter</set></property>
+           <property name="styleSheet"><string>font-size: 40px;</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLabel" name="lbl_ped_status">
+           <property name="text"><string>LIVRE</string></property>
+           <property name="alignment"><set>Qt::AlignCenter</set></property>
+           <property name="styleSheet"><string>color: #a6e3a1; font-weight: bold; font-size: 13px;</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_pedestre">
+           <property name="text"><string>🚶 Solicitar Travessia</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+
+      <!-- Controles do Operador -->
+      <item>
+       <widget class="QGroupBox" name="grp_controles">
+        <property name="title"><string>Controles do Operador</string></property>
+        <layout class="QVBoxLayout">
+         <item>
+          <widget class="QLabel" name="lbl_modo_atual">
+           <property name="text"><string>Modo: NORMAL</string></property>
+           <property name="styleSheet"><string>font-size: 14px; font-weight: bold; color: #a6e3a1;</string></property>
+           <property name="alignment"><set>Qt::AlignCenter</set></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_atencao">
+           <property name="text"><string>⚠ Amarelo Piscante</string></property>
+           <property name="styleSheet"><string>background-color: #f9e2af; color: #1e1e2e; font-weight: bold;</string></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="btn_normal">
+           <property name="text"><string>▶ Retomar Normal</string></property>
+           <property name="styleSheet"><string>background-color: #a6e3a1; color: #1e1e2e; font-weight: bold;</string></property>
+          </widget>
+         </item>
+         <item>
+          <spacer>
+           <property name="orientation"><enum>Qt::Vertical</enum></property>
+           <property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="lbl_timer">
+           <property name="text"><string>Próx. mudança: --</string></property>
+           <property name="alignment"><set>Qt::AlignCenter</set></property>
+           <property name="styleSheet"><string>color: #cba6f7; font-size: 12px;</string></property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+
+     </layout>
+    </item>
+
+    <!-- Log de eventos -->
+    <item>
+     <widget class="QGroupBox" name="grp_log">
+      <property name="title"><string>Log de Eventos</string></property>
+      <layout class="QVBoxLayout">
+       <item>
+        <widget class="QTextEdit" name="txt_log">
+         <property name="readOnly"><bool>true</bool></property>
+         <property name="maximumHeight"><number>140</number></property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+
+   </layout>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
