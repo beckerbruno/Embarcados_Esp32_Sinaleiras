@@ -30,7 +30,7 @@ const char *TOPIC_COMANDO = "embarcados/pucrs/semaforo/comando";
 #define PIN_BTN_PED 15 // Botão físico do pedestre (pull-up interno)
 
 // ============================================================
-// PCF8574 - NOVA PINAGEM (HIGH = LED ACESO - ÂNODO no PCF8574)
+// PCF8574 - NOVA PINAGEM (LOW = LED ACESO - CÁTODO no PCF8574)
 // Chip 1 (0x38)
 //   P0..P2 = sinaleira 5 (vermelho, amarelo, verde)
 //   P3..P5 = sinaleira 4 (vermelho, amarelo, verde)
@@ -43,7 +43,7 @@ const char *TOPIC_COMANDO = "embarcados/pucrs/semaforo/comando";
 //   P2..P4 = sinaleira 2 (vermelho, amarelo, verde)
 //   P5..P7 = sinaleira 3 (vermelho, amarelo, verde)
 //
-// ATENÇÃO: saída do PCF8574 ligada ao ÂNODO → HIGH = LED ACESO
+// ATENÇÃO: saída do PCF8574 ligada ao CÁTODO → LOW = LED ACESO
 // ============================================================
 PCF8574 chip1(0x38);
 PCF8574 chip2(0x39);
@@ -150,11 +150,11 @@ void setup()
 	chip1.begin();
 	chip2.begin();
 
-	// Todos os LEDs apagados no início (LOW = LED apagado)
+	// Todos os LEDs apagados no início (HIGH = LED apagado)
 	for (int i = 0; i < 8; i++)
 	{
-		chip1.digitalWrite(i, LOW);
-		chip2.digitalWrite(i, LOW);
+		chip1.digitalWrite(i, HIGH);
+		chip2.digitalWrite(i, HIGH);
 	}
 
 	pinMode(PIN_BTN_PED, INPUT_PULLUP);
@@ -304,48 +304,48 @@ void publishAll(const char *s1, const char *s2, const char *s3,
 }
 
 // ============================================================
-// Helpers de sinaleiras - NOVA PINAGEM (HIGH = LED ACESO)
+// Helpers de sinaleiras - NOVA PINAGEM (LOW = LED ACESO)
 // Chip1: P0-2=S5, P3-5=S4, P6-7=S1(VM,AM)
 // Chip2: P0=PED, P1=S1_VD, P2-4=S2, P5-7=S3
 // ============================================================
 inline void setS1(bool vm, bool am, bool vd)
 {
-	chip1.digitalWrite(S1_VM, vm ? HIGH : LOW);
-	chip1.digitalWrite(S1_AM, am ? HIGH : LOW);
-	chip2.digitalWrite(S1_VD, vd ? HIGH : LOW);
+	chip1.digitalWrite(S1_VM, vm ? LOW : HIGH);
+	chip1.digitalWrite(S1_AM, am ? LOW : HIGH);
+	chip2.digitalWrite(S1_VD, vd ? LOW : HIGH);
 }
 
 inline void setS2(bool vm, bool am, bool vd)
 {
-	chip2.digitalWrite(S2_VM, vm ? HIGH : LOW);
-	chip2.digitalWrite(S2_AM, am ? HIGH : LOW);
-	chip2.digitalWrite(S2_VD, vd ? HIGH : LOW);
+	chip2.digitalWrite(S2_VM, vm ? LOW : HIGH);
+	chip2.digitalWrite(S2_AM, am ? LOW : HIGH);
+	chip2.digitalWrite(S2_VD, vd ? LOW : HIGH);
 }
 
 inline void setS3(bool vm, bool am, bool vd)
 {
-	chip2.digitalWrite(S3_VM, vm ? HIGH : LOW);
-	chip2.digitalWrite(S3_AM, am ? HIGH : LOW);
-	chip2.digitalWrite(S3_VD, vd ? HIGH : LOW);
+	chip2.digitalWrite(S3_VM, vm ? LOW : HIGH);
+	chip2.digitalWrite(S3_AM, am ? LOW : HIGH);
+	chip2.digitalWrite(S3_VD, vd ? LOW : HIGH);
 }
 
 inline void setS4(bool vm, bool am, bool vd)
 {
-	chip1.digitalWrite(S4_VM, vm ? HIGH : LOW);
-	chip1.digitalWrite(S4_AM, am ? HIGH : LOW);
-	chip1.digitalWrite(S4_VD, vd ? HIGH : LOW);
+	chip1.digitalWrite(S4_VM, vm ? LOW : HIGH);
+	chip1.digitalWrite(S4_AM, am ? LOW : HIGH);
+	chip1.digitalWrite(S4_VD, vd ? LOW : HIGH);
 }
 
 inline void setS5(bool vm, bool am, bool vd)
 {
-	chip1.digitalWrite(S5_VM, vm ? HIGH : LOW);
-	chip1.digitalWrite(S5_AM, am ? HIGH : LOW);
-	chip1.digitalWrite(S5_VD, vd ? HIGH : LOW);
+	chip1.digitalWrite(S5_VM, vm ? LOW : HIGH);
+	chip1.digitalWrite(S5_AM, am ? LOW : HIGH);
+	chip1.digitalWrite(S5_VD, vd ? LOW : HIGH);
 }
 
 inline void setPed(bool active)
 {
-	chip2.digitalWrite(PED_LED, active ? HIGH : LOW);
+	chip2.digitalWrite(PED_LED, active ? LOW : HIGH);
 }
 
 // ============================================================
@@ -431,7 +431,7 @@ void taskSemaforo(void *pvParameters)
 			setS4(true, false, false);   // S4=VM
 			setS5(true, false, false);   // S5=VM
 			setPed(pedestreSolicit);
-			publishAll("AMARELO", "AMARELO", "VERMELHO", "VERMELHO", "VERMELHO", pedestreSolicit, "NORMAL");
+			publishAll("AMARELO", "VERDE", "VERMELHO", "VERMELHO", "VERMELHO", pedestreSolicit, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_AMARELO));
 
@@ -460,7 +460,7 @@ void taskSemaforo(void *pvParameters)
 			setS4(true, false, false);   // S4=VM
 			setS5(false, false, true);   // S5=VD
 			setPed(true);
-			publishAll("VERMELHO", "VERMELHO", "VERDE", "VERMELHO", "VERDE", false, "NORMAL");
+			publishAll("VERMELHO", "VERDE", "VERDE", "VERMELHO", "VERDE", false, "NORMAL");
 
 			TickType_t inicio = xTaskGetTickCount();
 			TickType_t duracao = pdMS_TO_TICKS(T_VERDE_PRO);
@@ -486,7 +486,7 @@ void taskSemaforo(void *pvParameters)
 			setS4(true, false, false);   // S4=VM
 			setS5(false, true, false);   // S5=AM
 			setPed(pedestreSolicit);
-			publishAll("VERMELHO", "VERMELHO", "AMARELO", "VERMELHO", "AMARELO", pedestreSolicit, "NORMAL");
+			publishAll("VERMELHO", "AMARELO", "AMARELO", "VERMELHO", "VERDE", pedestreSolicit, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_AMARELO));
 
@@ -515,7 +515,7 @@ void taskSemaforo(void *pvParameters)
 			setS4(false, false, true);   // S4=VD
 			setS5(false, false, true);   // S5=VD
 			setPed(true);
-			publishAll("VERMELHO", "VERDE", "VERMELHO", "VERDE", "VERDE", false, "NORMAL");
+			publishAll("VERMELHO", "VERMELHO", "VERMELHO", "VERDE", "VERDE", false, "NORMAL");
 
 			TickType_t inicio = xTaskGetTickCount();
 			TickType_t duracao = pdMS_TO_TICKS(T_VERDE_PRO);
@@ -541,7 +541,7 @@ void taskSemaforo(void *pvParameters)
 			setS4(false, true, false);   // S4=AM
 			setS5(false, true, false);   // S5=AM
 			setPed(pedestreSolicit);
-			publishAll("VERMELHO", "AMARELO", "VERMELHO", "AMARELO", "AMARELO", pedestreSolicit, "NORMAL");
+			publishAll("VERMELHO", "VERMELHO", "VERMELHO", "AMARELO", "AMARELO", pedestreSolicit, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_AMARELO));
 
@@ -570,7 +570,7 @@ void taskSemaforo(void *pvParameters)
 			setS4(true, false, false);
 			setS5(true, false, false);
 			setPed(true);
-			publishAll("VERMELHO", "VERMELHO", "VERMELHO", "VERMELHO", "VERMELHO", true, "NORMAL");
+			publishAll("VERMELHO", "VERDE", "VERMELHO", "VERMELHO", "VERMELHO", true, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_PEDESTRE));
 
@@ -606,15 +606,16 @@ void taskBotaoPedestre(void *pvParameters)
 			Serial.println("[BTN] Pedestre solicitou travessia");
 
 			// Publica no broker para o supervisório refletir (via JSON unificado)
-			if (xSemaphoreTake(xMqttMutex, pdMS_TO_TICKS(200)))
-			{
-				char json[256];
-				snprintf(json, sizeof(json), 
-					"{\"s1\":\"VERMELHO\",\"s2\":\"VERMELHO\",\"s3\":\"VERMELHO\",\"s4\":\"VERMELHO\",\"s5\":\"VERMELHO\",\"pedestre\":true,\"modo\":\"NORMAL\"}");
-				mqttClient.publish(TOPIC_STATUS, json, true);
-				xSemaphoreGive(xMqttMutex);
-			}
+			// if (xSemaphoreTake(xMqttMutex, pdMS_TO_TICKS(200)))
+			// {
+			// 	char json[256];
+			// 	snprintf(json, sizeof(json), 
+			// 		"{\"s1\":\"VERMELHO\",\"s2\":\"VERMELHO\",\"s3\":\"VERMELHO\",\"s4\":\"VERMELHO\",\"s5\":\"VERMELHO\",\"pedestre\":true,\"modo\":\"NORMAL\"}");
+			// 	mqttClient.publish(TOPIC_STATUS, json, true);
+			// 	xSemaphoreGive(xMqttMutex);
+			// }
 			vTaskDelay(pdMS_TO_TICKS(300)); // debounce
+			estadoAtual = TEMPO1_VERDE;
 		}
 
 		ultimoEstado = estadoBtn;
