@@ -49,24 +49,24 @@ PCF8574 chip1(0x38);
 PCF8574 chip2(0x39);
 
 // Pinagem do chip1
-#define S5_VM 0
-#define S5_AM 1
-#define S5_VD 2
-#define S4_VM 3
-#define S4_AM 4
-#define S4_VD 5
-#define S1_VM 6
-#define S1_AM 7
+// #define S5_VM 0
+#define S3_VD 1
+#define S3_AM 2
+#define S3_VM 3
+#define S2_VD 4
+#define S2_AM 5
+#define S2_VM 6
+#define S1_VD 7
 
 // Pinagem do chip2
-#define PED_LED 0
-#define S1_VD 1
-#define S2_VM 2
-#define S2_AM 3
-#define S2_VD 4
-#define S3_VM 5
-#define S3_AM 6
-#define S3_VD 7
+#define S1_AM 0
+#define S2_VM 1
+#define S4_VD 2
+#define S4_AM 3
+#define S4_VM 4
+#define S5_VD 5
+#define S5_AM 6
+#define S5_VM 7
 
 // Compatibilidade com nomenclatura anterior
 #define SAT_VM S1_VM
@@ -125,6 +125,12 @@ SemaphoreHandle_t xMqttMutex;
 SemaphoreHandle_t xEstadoMutex;
 
 // ============================================================
+// Estado dos chips PCF8574 (HIGH = LED apagado, LOW = LED aceso)
+// ============================================================
+uint8_t chip1State = 0xFF; // Todos apagados no início
+uint8_t chip2State = 0xFF;
+
+// ============================================================
 // Protótipos
 // ============================================================
 void connectWiFi();
@@ -139,6 +145,14 @@ void taskMQTT(void *pvParameters);
 void taskSemaforo(void *pvParameters);
 void taskBotaoPedestre(void *pvParameters);
 
+	void escreveByte(uint8_t endereco, uint8_t valor)
+	{
+		Wire.beginTransmission(endereco);
+		Wire.write(valor);
+		Wire.endTransmission();
+	}
+
+
 // ============================================================
 // Setup
 // ============================================================
@@ -150,12 +164,9 @@ void setup()
 	chip1.begin();
 	chip2.begin();
 
-	// Todos os LEDs apagados no início (HIGH = LED apagado)
-	for (int i = 0; i < 8; i++)
-	{
-		chip1.digitalWrite(i, HIGH);
-		chip2.digitalWrite(i, HIGH);
-	}
+	// Todos os LEDs apagados no início (HIGH = LED apagado = 0xFF)
+	escreveByte(0x38, chip1State);
+	escreveByte(0x39, chip2State);
 
 	pinMode(PIN_BTN_PED, INPUT_PULLUP);
 
@@ -303,49 +314,73 @@ void publishAll(const char *s1, const char *s2, const char *s3,
 		s1, s2, s3, s4, s5, pedestre ? "true" : "false", modo);
 }
 
+
 // ============================================================
-// Helpers de sinaleiras - NOVA PINAGEM (LOW = LED ACESO)
-// Chip1: P0-2=S5, P3-5=S4, P6-7=S1(VM,AM)
-// Chip2: P0=PED, P1=S1_VD, P2-4=S2, P5-7=S3
+// Helpers de sinaleiras usando escreveByte (LOW = LED ACESO)
+// Nova pinagem:
+// Chip1 (0x38): bit 1=S3_VD, 2=S3_AM, 3=S3_VM, 4=S2_VD, 5=S2_AM, 6=S2_VM, 7=S1_VD
+// Chip2 (0x39): bit 0=S1_AM, 1=S2_VM, 2=S4_VD, 3=S4_AM, 4=S4_VM, 5=S5_VD, 6=S5_AM, 7=S5_VM
 // ============================================================
+inline void setBit(uint8_t &byteVal, uint8_t bitPos, bool value)
+{
+	if (value)
+		byteVal &= ~(1 << bitPos);  // LOW = aceso
+	else
+		byteVal |= (1 << bitPos);   // HIGH = apagado
+}
+
 inline void setS1(bool vm, bool am, bool vd)
 {
-	chip1.digitalWrite(S1_VM, vm ? LOW : HIGH);
-	chip1.digitalWrite(S1_AM, am ? LOW : HIGH);
-	chip2.digitalWrite(S1_VD, vd ? LOW : HIGH);
+	// S1_VD=bit7 no chip1; S1_AM=bit0 no chip2 (S1_VM não definido na nova pinagem)
+	setBit(chip1State, 7, vd);
+	setBit(chip2State, 0, am);
+	// VM não está definido na nova pinagem - assumindo que não existe ou está em outro pino
+	escreveByte(0x38, chip1State);
+	escreveByte(0x39, chip2State);
 }
 
 inline void setS2(bool vm, bool am, bool vd)
 {
-	chip2.digitalWrite(S2_VM, vm ? LOW : HIGH);
-	chip2.digitalWrite(S2_AM, am ? LOW : HIGH);
-	chip2.digitalWrite(S2_VD, vd ? LOW : HIGH);
+	// S2_VM=bit6, S2_AM=bit5, S2_VD=bit4 no chip1; S2_VM=bit1 no chip2
+	setBit(chip1State, 6, vm);  // Prioridade: chip1
+	setBit(chip1State, 5, am);
+	setBit(chip1State, 4, vd);
+	setBit(chip2State, 1, vm);  // Também atualiza chip2 bit 1
+	escreveByte(0x38, chip1State);
+	escreveByte(0x39, chip2State);
 }
 
 inline void setS3(bool vm, bool am, bool vd)
 {
-	chip2.digitalWrite(S3_VM, vm ? LOW : HIGH);
-	chip2.digitalWrite(S3_AM, am ? LOW : HIGH);
-	chip2.digitalWrite(S3_VD, vd ? LOW : HIGH);
+	// S3_VM=bit3, S3_AM=bit2, S3_VD=bit1 no chip1
+	setBit(chip1State, 3, vm);
+	setBit(chip1State, 2, am);
+	setBit(chip1State, 1, vd);
+	escreveByte(0x38, chip1State);
 }
 
 inline void setS4(bool vm, bool am, bool vd)
 {
-	chip1.digitalWrite(S4_VM, vm ? LOW : HIGH);
-	chip1.digitalWrite(S4_AM, am ? LOW : HIGH);
-	chip1.digitalWrite(S4_VD, vd ? LOW : HIGH);
+	// S4_VM=bit4, S4_AM=bit3, S4_VD=bit2 no chip2
+	setBit(chip2State, 4, vm);
+	setBit(chip2State, 3, am);
+	setBit(chip2State, 2, vd);
+	escreveByte(0x39, chip2State);
 }
 
 inline void setS5(bool vm, bool am, bool vd)
 {
-	chip1.digitalWrite(S5_VM, vm ? LOW : HIGH);
-	chip1.digitalWrite(S5_AM, am ? LOW : HIGH);
-	chip1.digitalWrite(S5_VD, vd ? LOW : HIGH);
+	// S5_VM=bit7, S5_AM=bit6, S5_VD=bit5 no chip2
+	setBit(chip2State, 7, vm);
+	setBit(chip2State, 6, am);
+	setBit(chip2State, 5, vd);
+	escreveByte(0x39, chip2State);
 }
 
 inline void setPed(bool active)
 {
-	chip2.digitalWrite(PED_LED, active ? LOW : HIGH);
+	// PED_LED não definido na nova pinagem - desabilitado temporariamente
+	// Se houver pino para pedestre, adicione aqui
 }
 
 // ============================================================
