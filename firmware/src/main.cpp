@@ -191,19 +191,6 @@ void connectWiFi()
 		Serial.print(".");
 	}
 	Serial.printf("\n[WiFi] Conectado. IP: %s\n", WiFi.localIP().toString().c_str());
-	Serial.println("[WiFi] Sucesso! Acendendo todos os LEDs por 2 segundos...");
-	for (int i = 0; i < 8; i++)
-	{
-		chip1.digitalWrite(i, HIGH);  // HIGH = aceso
-		chip2.digitalWrite(i, HIGH);
-	}
-	vTaskDelay(pdMS_TO_TICKS(2000));
-	for (int i = 0; i < 8; i++)
-	{
-		chip1.digitalWrite(i, LOW);  // LOW = apagado
-		chip2.digitalWrite(i, LOW);
-	}
-	Serial.println("[WiFi] LEDs desligados. Seguindo com o programa.");
 }
 
 void connectMQTT()
