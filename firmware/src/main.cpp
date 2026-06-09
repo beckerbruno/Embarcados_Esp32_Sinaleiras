@@ -30,20 +30,20 @@ const char *TOPIC_COMANDO = "embarcados/pucrs/semaforo/comando";
 #define PIN_BTN_PED 15 // Botão físico do pedestre (pull-up interno)
 
 // ============================================================
-// PCF8574
+// PCF8574 - NOVA PINAGEM (HIGH = LED ACESO - ÂNODO no PCF8574)
 // Chip 1 (0x38)
-//   P0..P2 = sinaleira 1 (vermelho, amarelo, verde)
-//   P3..P5 = sinaleira 2 (vermelho, amarelo, verde)
-//   P6      = verde da sinaleira 3
-//   P7      = led do pedestre
+//   P0..P2 = sinaleira 5 (vermelho, amarelo, verde)
+//   P3..P5 = sinaleira 4 (vermelho, amarelo, verde)
+//   P6..P7 = sinaleira 1 (vermelho, amarelo) - VD no chip2
+//   P7      = reservado
 //
 // Chip 2 (0x39)
-//   P0 = amarelo da sinaleira 3
-//   P1 = vermelho da sinaleira 3
-//   P2..P4 = sinaleira 4 (vermelho, amarelo, verde)
-//   P5..P7 = sinaleira 5 (vermelho, amarelo, verde)
+//   P0 = led do pedestre
+//   P1 = verde da sinaleira 1
+//   P2..P4 = sinaleira 2 (vermelho, amarelo, verde)
+//   P5..P7 = sinaleira 3 (vermelho, amarelo, verde)
 //
-// ATENÇÃO: saída do PCF8574 ligada ao CÁTODO → LOW = LED ACESO
+// ATENÇÃO: saída do PCF8574 ligada ao ÂNODO → HIGH = LED ACESO
 // ============================================================
 PCF8574 chip1(0x38);
 PCF8574 chip2(0x39);
@@ -150,11 +150,11 @@ void setup()
 	chip1.begin();
 	chip2.begin();
 
-	// Todos os LEDs apagados no início (HIGH = LED apagado)
+	// Todos os LEDs apagados no início (LOW = LED apagado)
 	for (int i = 0; i < 8; i++)
 	{
-		chip1.digitalWrite(i, HIGH);
-		chip2.digitalWrite(i, HIGH);
+		chip1.digitalWrite(i, LOW);
+		chip2.digitalWrite(i, LOW);
 	}
 
 	pinMode(PIN_BTN_PED, INPUT_PULLUP);
@@ -178,29 +178,6 @@ void loop()
 }
 
 // ============================================================
-// Helpers de hardware
-// LOW = LED ACESO (cátodo no PCF8574)
-// ============================================================
-void setChip1(bool vmSat, bool amSat, bool vdSat)
-{
-	chip1.digitalWrite(SAT_VM, vmSat ? LOW : HIGH);
-	chip1.digitalWrite(SAT_AM, amSat ? LOW : HIGH);
-	chip1.digitalWrite(SAT_VD, vdSat ? LOW : HIGH);
-}
-
-void setChip2(bool vmPro, bool amPro, bool vdPro)
-{
-	chip2.digitalWrite(PRO_VM, vmPro ? LOW : HIGH);
-	chip2.digitalWrite(PRO_AM, amPro ? LOW : HIGH);
-	chip2.digitalWrite(PRO_VD, vdPro ? LOW : HIGH);
-}
-
-void setPedestrianLed(bool active)
-{
-	chip1.digitalWrite(PED_LED, active ? LOW : HIGH);
-}
-
-// ============================================================
 // Conexões
 // ============================================================
 void connectWiFi()
@@ -217,14 +194,14 @@ void connectWiFi()
 	Serial.println("[WiFi] Sucesso! Acendendo todos os LEDs por 2 segundos...");
 	for (int i = 0; i < 8; i++)
 	{
-		chip1.digitalWrite(i, LOW);
-		chip2.digitalWrite(i, LOW);
+		chip1.digitalWrite(i, HIGH);  // HIGH = aceso
+		chip2.digitalWrite(i, HIGH);
 	}
 	vTaskDelay(pdMS_TO_TICKS(2000));
 	for (int i = 0; i < 8; i++)
 	{
-		chip1.digitalWrite(i, HIGH);
-		chip2.digitalWrite(i, HIGH);
+		chip1.digitalWrite(i, LOW);  // LOW = apagado
+		chip2.digitalWrite(i, LOW);
 	}
 	Serial.println("[WiFi] LEDs desligados. Seguindo com o programa.");
 }
@@ -340,6 +317,51 @@ void publishAll(const char *s1, const char *s2, const char *s3,
 }
 
 // ============================================================
+// Helpers de sinaleiras - NOVA PINAGEM (HIGH = LED ACESO)
+// Chip1: P0-2=S5, P3-5=S4, P6-7=S1(VM,AM)
+// Chip2: P0=PED, P1=S1_VD, P2-4=S2, P5-7=S3
+// ============================================================
+inline void setS1(bool vm, bool am, bool vd)
+{
+	chip1.digitalWrite(S1_VM, vm ? HIGH : LOW);
+	chip1.digitalWrite(S1_AM, am ? HIGH : LOW);
+	chip2.digitalWrite(S1_VD, vd ? HIGH : LOW);
+}
+
+inline void setS2(bool vm, bool am, bool vd)
+{
+	chip2.digitalWrite(S2_VM, vm ? HIGH : LOW);
+	chip2.digitalWrite(S2_AM, am ? HIGH : LOW);
+	chip2.digitalWrite(S2_VD, vd ? HIGH : LOW);
+}
+
+inline void setS3(bool vm, bool am, bool vd)
+{
+	chip2.digitalWrite(S3_VM, vm ? HIGH : LOW);
+	chip2.digitalWrite(S3_AM, am ? HIGH : LOW);
+	chip2.digitalWrite(S3_VD, vd ? HIGH : LOW);
+}
+
+inline void setS4(bool vm, bool am, bool vd)
+{
+	chip1.digitalWrite(S4_VM, vm ? HIGH : LOW);
+	chip1.digitalWrite(S4_AM, am ? HIGH : LOW);
+	chip1.digitalWrite(S4_VD, vd ? HIGH : LOW);
+}
+
+inline void setS5(bool vm, bool am, bool vd)
+{
+	chip1.digitalWrite(S5_VM, vm ? HIGH : LOW);
+	chip1.digitalWrite(S5_AM, am ? HIGH : LOW);
+	chip1.digitalWrite(S5_VD, vd ? HIGH : LOW);
+}
+
+inline void setPed(bool active)
+{
+	chip2.digitalWrite(PED_LED, active ? HIGH : LOW);
+}
+
+// ============================================================
 // Task Semáforo — FSM principal com 3 tempos
 // ============================================================
 // Sequência conforme imagem:
@@ -365,9 +387,14 @@ void taskSemaforo(void *pvParameters)
 			}
 
 			piscaLigado = !piscaLigado;
-			setChip1(false, piscaLigado, false);
-			setChip2(false, piscaLigado, false);
-			setPedestrianLed(false);
+			// Todos amarelos piscam
+			bool am = piscaLigado;
+			setS1(false, am, false);
+			setS2(false, am, false);
+			setS3(false, am, false);
+			setS4(false, am, false);
+			setS5(false, am, false);
+			setPed(false);
 			vTaskDelay(pdMS_TO_TICKS(T_PISCA_ATENCAO));
 			continue;
 		}
@@ -385,31 +412,12 @@ void taskSemaforo(void *pvParameters)
 		// ======================================================
 		case TEMPO1_VERDE:
 		{
-			// S1: Chip1 P2=VD, S2: Chip1 P3-5=VD? Não, S2 está no Chip1 também
-			// Chip1: P0-2=S1, P3-5=S2, P6=S3_VD, P7=PED
-			// Chip2: P0-1=S3_AM/VM, P2-4=S4, P5-7=S5
-			
-			// S1=VD (Chip1: VM=0, AM=0, VD=1)
-			// S2=VD (Chip1: S2_VM=0, S2_AM=0, S2_VD=1)
-			// S3=VM (Chip1: S3_VD=0, Chip2: S3_AM=0, S3_VM=1)
-			// S4=VM (Chip2: S4_VM=1, S4_AM=0, S4_VD=0)
-			// S5=VM (Chip2: S5_VM=1, S5_AM=0, S5_VD=0)
-			setChip1(false, false, true);  // S1=VD
-			// Precisamos controlar S2 também no Chip1
-			chip1.digitalWrite(S2_VM, HIGH); // S2_VM=OFF
-			chip1.digitalWrite(S2_AM, HIGH); // S2_AM=OFF
-			chip1.digitalWrite(S2_VD, LOW);  // S2_VD=ON
-			chip1.digitalWrite(S3_VD, LOW);  // S3_VD=ON (mas vai ser VM no Chip2)
-			setChip2(true, false, false);    // S4=VM
-			// S5=VM no Chip2
-			chip2.digitalWrite(S5_VM, LOW);  // S5_VM=ON (ativo baixo)
-			chip2.digitalWrite(S5_AM, HIGH);
-			chip2.digitalWrite(S5_VD, HIGH);
-			// S3=VM (Chip2)
-			chip2.digitalWrite(S3_AM, HIGH);
-			chip2.digitalWrite(S3_VM, LOW);  // S3_VM=ON
-			
-			setPedestrianLed(true);
+			setS1(false, false, true);   // S1=VD
+			setS2(false, false, true);   // S2=VD
+			setS3(true, false, false);   // S3=VM
+			setS4(true, false, false);   // S4=VM
+			setS5(true, false, false);   // S5=VM
+			setPed(true);
 			publishAll("VERDE", "VERDE", "VERMELHO", "VERMELHO", "VERMELHO", false, "NORMAL");
 
 			TickType_t inicio = xTaskGetTickCount();
@@ -429,20 +437,13 @@ void taskSemaforo(void *pvParameters)
 
 		case TEMPO1_AMARELO:
 		{
-			// S1=AM, S2=AM, outros=VM
-			setChip1(false, true, false);   // S1=AM
-			chip1.digitalWrite(S2_VM, HIGH);
-			chip1.digitalWrite(S2_AM, LOW);  // S2_AM=ON
-			chip1.digitalWrite(S2_VD, HIGH);
-			chip1.digitalWrite(S3_VD, HIGH);
-			setChip2(true, false, false);   // S4=VM
-			chip2.digitalWrite(S5_VM, LOW);
-			chip2.digitalWrite(S5_AM, HIGH);
-			chip2.digitalWrite(S5_VD, HIGH);
-			chip2.digitalWrite(S3_AM, HIGH);
-			chip2.digitalWrite(S3_VM, LOW);
-			
-			setPedestrianLed(pedestreSolicit);
+			// S1=AM, S2=AM (transição VD→VM)
+			setS1(false, true, false);   // S1=AM
+			setS2(false, true, false);   // S2=AM
+			setS3(true, false, false);   // S3=VM
+			setS4(true, false, false);   // S4=VM
+			setS5(true, false, false);   // S5=VM
+			setPed(pedestreSolicit);
 			publishAll("AMARELO", "AMARELO", "VERMELHO", "VERMELHO", "VERMELHO", pedestreSolicit, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_AMARELO));
@@ -466,24 +467,16 @@ void taskSemaforo(void *pvParameters)
 		// ======================================================
 		case TEMPO2_VERDE:
 		{
-			// S1=VM, S2=VM, S3=VD, S4=VM, S5=VD
-			setChip1(true, false, false);   // S1=VM
-			chip1.digitalWrite(S2_VM, LOW);  // S2_VM=ON
-			chip1.digitalWrite(S2_AM, HIGH);
-			chip1.digitalWrite(S2_VD, HIGH);
-			chip1.digitalWrite(S3_VD, LOW);  // S3_VD=ON
-			setChip2(true, false, false);   // S4=VM
-			chip2.digitalWrite(S5_VM, HIGH);
-			chip2.digitalWrite(S5_AM, HIGH);
-			chip2.digitalWrite(S5_VD, LOW);  // S5_VD=ON
-			chip2.digitalWrite(S3_AM, HIGH);
-			chip2.digitalWrite(S3_VM, HIGH); // S3_VM=OFF
-			
-			setPedestrianLed(true);
+			setS1(true, false, false);   // S1=VM
+			setS2(true, false, false);   // S2=VM
+			setS3(false, false, true);   // S3=VD
+			setS4(true, false, false);   // S4=VM
+			setS5(false, false, true);   // S5=VD
+			setPed(true);
 			publishAll("VERMELHO", "VERMELHO", "VERDE", "VERMELHO", "VERDE", false, "NORMAL");
 
 			TickType_t inicio = xTaskGetTickCount();
-			TickType_t duracao = pdMS_TO_TICKS(T_VERDE_PRO); // Protásio tem tempo maior
+			TickType_t duracao = pdMS_TO_TICKS(T_VERDE_PRO);
 
 			while ((xTaskGetTickCount() - inicio) < duracao)
 			{
@@ -500,19 +493,12 @@ void taskSemaforo(void *pvParameters)
 		case TEMPO2_AMARELO:
 		{
 			// S3=AM, S5=AM (transição VD→VM)
-			setChip1(true, false, false);    // S1=VM
-			chip1.digitalWrite(S2_VM, LOW);  // S2=VM
-			chip1.digitalWrite(S2_AM, HIGH);
-			chip1.digitalWrite(S2_VD, HIGH);
-			chip1.digitalWrite(S3_VD, HIGH);
-			setChip2(true, false, false);    // S4=VM
-			chip2.digitalWrite(S5_VM, HIGH);
-			chip2.digitalWrite(S5_AM, LOW);   // S5_AM=ON
-			chip2.digitalWrite(S5_VD, HIGH);
-			chip2.digitalWrite(S3_AM, LOW);   // S3_AM=ON
-			chip2.digitalWrite(S3_VM, HIGH);
-			
-			setPedestrianLed(pedestreSolicit);
+			setS1(true, false, false);   // S1=VM
+			setS2(true, false, false);   // S2=VM
+			setS3(false, true, false);   // S3=AM
+			setS4(true, false, false);   // S4=VM
+			setS5(false, true, false);   // S5=AM
+			setPed(pedestreSolicit);
 			publishAll("VERMELHO", "VERMELHO", "AMARELO", "VERMELHO", "AMARELO", pedestreSolicit, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_AMARELO));
@@ -536,20 +522,12 @@ void taskSemaforo(void *pvParameters)
 		// ======================================================
 		case TEMPO3_VERDE:
 		{
-			// S1=VM, S2=VD, S3=VM, S4=VD, S5=VD
-			setChip1(true, false, false);    // S1=VM
-			chip1.digitalWrite(S2_VM, HIGH);
-			chip1.digitalWrite(S2_AM, HIGH);
-			chip1.digitalWrite(S2_VD, LOW);  // S2_VD=ON
-			chip1.digitalWrite(S3_VD, HIGH);
-			setChip2(false, false, true);     // S4=VD
-			chip2.digitalWrite(S5_VM, HIGH);
-			chip2.digitalWrite(S5_AM, HIGH);
-			chip2.digitalWrite(S5_VD, LOW);  // S5_VD=ON
-			chip2.digitalWrite(S3_AM, HIGH);
-			chip2.digitalWrite(S3_VM, LOW);   // S3_VM=ON
-			
-			setPedestrianLed(true);
+			setS1(true, false, false);   // S1=VM
+			setS2(false, false, true);   // S2=VD
+			setS3(true, false, false);   // S3=VM
+			setS4(false, false, true);   // S4=VD
+			setS5(false, false, true);   // S5=VD
+			setPed(true);
 			publishAll("VERMELHO", "VERDE", "VERMELHO", "VERDE", "VERDE", false, "NORMAL");
 
 			TickType_t inicio = xTaskGetTickCount();
@@ -570,19 +548,12 @@ void taskSemaforo(void *pvParameters)
 		case TEMPO3_AMARELO:
 		{
 			// S2=AM, S4=AM, S5=AM (transição VD→VM)
-			setChip1(true, false, false);    // S1=VM
-			chip1.digitalWrite(S2_VM, HIGH);
-			chip1.digitalWrite(S2_AM, LOW);   // S2_AM=ON
-			chip1.digitalWrite(S2_VD, HIGH);
-			chip1.digitalWrite(S3_VD, HIGH);
-			setChip2(false, true, false);     // S4_AM=ON
-			chip2.digitalWrite(S5_VM, HIGH);
-			chip2.digitalWrite(S5_AM, LOW);    // S5_AM=ON
-			chip2.digitalWrite(S5_VD, HIGH);
-			chip2.digitalWrite(S3_AM, HIGH);
-			chip2.digitalWrite(S3_VM, LOW);    // S3_VM=ON
-			
-			setPedestrianLed(pedestreSolicit);
+			setS1(true, false, false);   // S1=VM
+			setS2(false, true, false);   // S2=AM
+			setS3(true, false, false);   // S3=VM
+			setS4(false, true, false);   // S4=AM
+			setS5(false, true, false);   // S5=AM
+			setPed(pedestreSolicit);
 			publishAll("VERMELHO", "AMARELO", "VERMELHO", "AMARELO", "AMARELO", pedestreSolicit, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_AMARELO));
@@ -606,26 +577,19 @@ void taskSemaforo(void *pvParameters)
 		// ======================================================
 		case PEDESTRE_FASE:
 		{
-			setChip1(true, false, false);
-			chip1.digitalWrite(S2_VM, LOW);
-			chip1.digitalWrite(S2_AM, HIGH);
-			chip1.digitalWrite(S2_VD, HIGH);
-			chip1.digitalWrite(S3_VD, HIGH);
-			setChip2(true, false, false);
-			chip2.digitalWrite(S5_VM, LOW);
-			chip2.digitalWrite(S5_AM, HIGH);
-			chip2.digitalWrite(S5_VD, HIGH);
-			chip2.digitalWrite(S3_AM, HIGH);
-			chip2.digitalWrite(S3_VM, LOW);
-			
-			setPedestrianLed(true);
+			setS1(true, false, false);
+			setS2(true, false, false);
+			setS3(true, false, false);
+			setS4(true, false, false);
+			setS5(true, false, false);
+			setPed(true);
 			publishAll("VERMELHO", "VERMELHO", "VERMELHO", "VERMELHO", "VERMELHO", true, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_PEDESTRE));
 
 			if (!modoAtencao)
 			{
-				estadoAtual = TEMPO1_VERDE; // Volta para 1º tempo
+				estadoAtual = TEMPO1_VERDE;
 			}
 			break;
 		}
