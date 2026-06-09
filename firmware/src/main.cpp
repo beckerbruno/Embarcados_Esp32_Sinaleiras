@@ -49,24 +49,24 @@ PCF8574 chip1(0x38);
 PCF8574 chip2(0x39);
 
 // Pinagem do chip1
-#define S1_VM 0
-#define S1_AM 1
-#define S1_VD 2
-#define S2_VM 3
-#define S2_AM 4
-#define S2_VD 5
-#define S3_VD 6
-#define PED_LED 7
+#define S5_VM 0
+#define S5_AM 1
+#define S5_VD 2
+#define S4_VM 3
+#define S4_AM 4
+#define S4_VD 5
+#define S1_VM 6
+#define S1_AM 7
 
 // Pinagem do chip2
-#define S3_AM 0
-#define S3_VM 1
-#define S4_VM 2
-#define S4_AM 3
-#define S4_VD 4
-#define S5_VM 5
-#define S5_AM 6
-#define S5_VD 7
+#define PED_LED 0
+#define S1_VD 1
+#define S2_VM 2
+#define S2_AM 3
+#define S2_VD 4
+#define S3_VM 5
+#define S3_AM 6
+#define S3_VD 7
 
 // Compatibilidade com nomenclatura anterior
 #define SAT_VM S1_VM
@@ -92,16 +92,24 @@ PCF8574 chip2(0x39);
 // ============================================================
 enum EstadoSemaforo
 {
-	SAT_VERDE,	   // Saturnino verde, Protásio vermelho
-	SAT_AMARELO,   // Saturnino amarelo (transição)
-	PRO_VERDE,	   // Protásio verde, Saturnino vermelho
-	PRO_AMARELO,   // Protásio amarelo (transição)
-	PEDESTRE_FASE, // Todos vermelhos, pedestre atravessa
-	ATENCAO		   // Todos amarelo piscante 1 Hz
+	// 1º TEMPO: S1=VD, S2=VD, S3=VM, S4=VM, S5=VM
+	TEMPO1_VERDE,
+	TEMPO1_AMARELO,  // Transição para 2º tempo
+	
+	// 2º TEMPO: S1=VM, S2=VM, S3=VD, S4=VM, S5=VD  
+	TEMPO2_VERDE,
+	TEMPO2_AMARELO,  // Transição para 3º tempo
+	
+	// 3º TEMPO: S1=VM, S2=VD, S3=VM, S4=VD, S5=VD
+	TEMPO3_VERDE,
+	TEMPO3_AMARELO,  // Transição para 1º tempo ou pedestre
+	
+	PEDESTRE_FASE,   // Todos vermelhos, pedestre atravessa
+	ATENCAO		     // Todos amarelo piscante 1 Hz
 };
 
-volatile EstadoSemaforo estadoAtual = SAT_VERDE;
-volatile EstadoSemaforo estadoAntes = SAT_VERDE; // estado anterior ao modo ATENCAO
+volatile EstadoSemaforo estadoAtual = TEMPO1_VERDE;
+volatile EstadoSemaforo estadoAntes = TEMPO1_VERDE; // estado anterior ao modo ATENCAO
 
 volatile bool modoPendente = false; // flag para publicar modo fora do callback
 volatile bool modoAtencao = false;
@@ -332,7 +340,13 @@ void publishAll(const char *s1, const char *s2, const char *s3,
 }
 
 // ============================================================
-// Task Semáforo — FSM principal
+// Task Semáforo — FSM principal com 3 tempos
+// ============================================================
+// Sequência conforme imagem:
+// 1º TEMPO: S1=VD, S2=VD, S3=VM, S4=VM, S5=VM
+// 2º TEMPO: S1=VM, S2=VM, S3=VD, S4=VM, S5=VD
+// 3º TEMPO: S1=VM, S2=VD, S3=VM, S4=VD, S5=VD
+// PEDESTRE: Todos VM
 // ============================================================
 void taskSemaforo(void *pvParameters)
 {
@@ -347,11 +361,9 @@ void taskSemaforo(void *pvParameters)
 			{
 				estadoAntes = estadoAtual;
 				estadoAtual = ATENCAO;
-				// No modo ATENCAO: todos amarelos piscando, pedestre = false
 				publishAll("AMARELO", "AMARELO", "AMARELO", "AMARELO", "AMARELO", false, "PISCANTE");
 			}
 
-			// Pisca amarelo em ambos
 			piscaLigado = !piscaLigado;
 			setChip1(false, piscaLigado, false);
 			setChip2(false, piscaLigado, false);
@@ -368,61 +380,74 @@ void taskSemaforo(void *pvParameters)
 
 		switch (estadoAtual)
 		{
-
-		// --------------------------------------------------
-		// SAT_VERDE: Saturnino=VERDE, Protásio=VERMELHO
-		// S1=VERDE, S4=VERMELHO, outros=OFF
-		// --------------------------------------------------
-		case SAT_VERDE:
+		// ======================================================
+		// 1º TEMPO: S1=VD, S2=VD, S3=VM, S4=VM, S5=VM
+		// ======================================================
+		case TEMPO1_VERDE:
 		{
-			setChip1(false, false, true);
-			setChip2(true, false, false); // PRO VM
+			// S1: Chip1 P2=VD, S2: Chip1 P3-5=VD? Não, S2 está no Chip1 também
+			// Chip1: P0-2=S1, P3-5=S2, P6=S3_VD, P7=PED
+			// Chip2: P0-1=S3_AM/VM, P2-4=S4, P5-7=S5
+			
+			// S1=VD (Chip1: VM=0, AM=0, VD=1)
+			// S2=VD (Chip1: S2_VM=0, S2_AM=0, S2_VD=1)
+			// S3=VM (Chip1: S3_VD=0, Chip2: S3_AM=0, S3_VM=1)
+			// S4=VM (Chip2: S4_VM=1, S4_AM=0, S4_VD=0)
+			// S5=VM (Chip2: S5_VM=1, S5_AM=0, S5_VD=0)
+			setChip1(false, false, true);  // S1=VD
+			// Precisamos controlar S2 também no Chip1
+			chip1.digitalWrite(S2_VM, HIGH); // S2_VM=OFF
+			chip1.digitalWrite(S2_AM, HIGH); // S2_AM=OFF
+			chip1.digitalWrite(S2_VD, LOW);  // S2_VD=ON
+			chip1.digitalWrite(S3_VD, LOW);  // S3_VD=ON (mas vai ser VM no Chip2)
+			setChip2(true, false, false);    // S4=VM
+			// S5=VM no Chip2
+			chip2.digitalWrite(S5_VM, LOW);  // S5_VM=ON (ativo baixo)
+			chip2.digitalWrite(S5_AM, HIGH);
+			chip2.digitalWrite(S5_VD, HIGH);
+			// S3=VM (Chip2)
+			chip2.digitalWrite(S3_AM, HIGH);
+			chip2.digitalWrite(S3_VM, LOW);  // S3_VM=ON
+			
 			setPedestrianLed(true);
-			// S1=VERDE, S4=VERMELHO, S2/S3/S5=OFF, pedestre=false
-			publishAll("VERDE", "VERMELHO", "VERMELHO", "VERMELHO", "VERMELHO", false, "NORMAL");
+			publishAll("VERDE", "VERDE", "VERMELHO", "VERMELHO", "VERMELHO", false, "NORMAL");
 
 			TickType_t inicio = xTaskGetTickCount();
 			TickType_t duracao = pdMS_TO_TICKS(T_VERDE_SAT);
 
 			while ((xTaskGetTickCount() - inicio) < duracao)
 			{
-				if (modoAtencao)
-					break;
-				if (pedestreSolicit)
-					break;
+				if (modoAtencao) break;
+				if (pedestreSolicit) break;
 				vTaskDelay(pdMS_TO_TICKS(100));
 			}
 
-			if (modoAtencao)
-				break;
-
-			if (pedestreSolicit)
-			{
-				estadoAtual = SAT_AMARELO; // continua para amarelo antes de pedestre
-			}
-			else
-			{
-				estadoAtual = SAT_AMARELO;
-			}
+			if (modoAtencao) break;
+			estadoAtual = TEMPO1_AMARELO;
 			break;
 		}
 
-		// --------------------------------------------------
-		// SAT_AMARELO: Saturnino=AMARELO (transição)
-		// S1=AMARELO, S4=VERMELHO
-		// --------------------------------------------------
-		case SAT_AMARELO:
+		case TEMPO1_AMARELO:
 		{
-			setChip1(false, true, false);
-			setChip2(true, false, false); // PRO VM
+			// S1=AM, S2=AM, outros=VM
+			setChip1(false, true, false);   // S1=AM
+			chip1.digitalWrite(S2_VM, HIGH);
+			chip1.digitalWrite(S2_AM, LOW);  // S2_AM=ON
+			chip1.digitalWrite(S2_VD, HIGH);
+			chip1.digitalWrite(S3_VD, HIGH);
+			setChip2(true, false, false);   // S4=VM
+			chip2.digitalWrite(S5_VM, LOW);
+			chip2.digitalWrite(S5_AM, HIGH);
+			chip2.digitalWrite(S5_VD, HIGH);
+			chip2.digitalWrite(S3_AM, HIGH);
+			chip2.digitalWrite(S3_VM, LOW);
+			
 			setPedestrianLed(pedestreSolicit);
-			// S1=AMARELO, S4=VERMELHO, pedestre=pedestreSolicit
-			publishAll("AMARELO", "VERMELHO", "VERMELHO", "VERMELHO", "VERMELHO", pedestreSolicit, "NORMAL");
+			publishAll("AMARELO", "AMARELO", "VERMELHO", "VERMELHO", "VERMELHO", pedestreSolicit, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_AMARELO));
 
-			if (modoAtencao)
-				break;
+			if (modoAtencao) break;
 
 			if (pedestreSolicit)
 			{
@@ -431,58 +456,138 @@ void taskSemaforo(void *pvParameters)
 			}
 			else
 			{
-				estadoAtual = PRO_VERDE;
+				estadoAtual = TEMPO2_VERDE;
 			}
 			break;
 		}
 
-		// --------------------------------------------------
-		// PRO_VERDE: Protásio=VERDE, Saturnino=VERMELHO
-		// S1=VERMELHO, S4=VERDE
-		// --------------------------------------------------
-		case PRO_VERDE:
+		// ======================================================
+		// 2º TEMPO: S1=VM, S2=VM, S3=VD, S4=VM, S5=VD
+		// ======================================================
+		case TEMPO2_VERDE:
 		{
-			setChip1(true, false, false);
-			setChip2(false, false, true); // PRO VD
+			// S1=VM, S2=VM, S3=VD, S4=VM, S5=VD
+			setChip1(true, false, false);   // S1=VM
+			chip1.digitalWrite(S2_VM, LOW);  // S2_VM=ON
+			chip1.digitalWrite(S2_AM, HIGH);
+			chip1.digitalWrite(S2_VD, HIGH);
+			chip1.digitalWrite(S3_VD, LOW);  // S3_VD=ON
+			setChip2(true, false, false);   // S4=VM
+			chip2.digitalWrite(S5_VM, HIGH);
+			chip2.digitalWrite(S5_AM, HIGH);
+			chip2.digitalWrite(S5_VD, LOW);  // S5_VD=ON
+			chip2.digitalWrite(S3_AM, HIGH);
+			chip2.digitalWrite(S3_VM, HIGH); // S3_VM=OFF
+			
 			setPedestrianLed(true);
-			// S1=VERMELHO, S4=VERDE, pedestre=false
-			publishAll("VERMELHO", "VERMELHO", "VERMELHO", "VERDE", "VERMELHO", false, "NORMAL");
+			publishAll("VERMELHO", "VERMELHO", "VERDE", "VERMELHO", "VERDE", false, "NORMAL");
+
+			TickType_t inicio = xTaskGetTickCount();
+			TickType_t duracao = pdMS_TO_TICKS(T_VERDE_PRO); // Protásio tem tempo maior
+
+			while ((xTaskGetTickCount() - inicio) < duracao)
+			{
+				if (modoAtencao) break;
+				if (pedestreSolicit) break;
+				vTaskDelay(pdMS_TO_TICKS(100));
+			}
+
+			if (modoAtencao) break;
+			estadoAtual = TEMPO2_AMARELO;
+			break;
+		}
+
+		case TEMPO2_AMARELO:
+		{
+			// S3=AM, S5=AM (transição VD→VM)
+			setChip1(true, false, false);    // S1=VM
+			chip1.digitalWrite(S2_VM, LOW);  // S2=VM
+			chip1.digitalWrite(S2_AM, HIGH);
+			chip1.digitalWrite(S2_VD, HIGH);
+			chip1.digitalWrite(S3_VD, HIGH);
+			setChip2(true, false, false);    // S4=VM
+			chip2.digitalWrite(S5_VM, HIGH);
+			chip2.digitalWrite(S5_AM, LOW);   // S5_AM=ON
+			chip2.digitalWrite(S5_VD, HIGH);
+			chip2.digitalWrite(S3_AM, LOW);   // S3_AM=ON
+			chip2.digitalWrite(S3_VM, HIGH);
+			
+			setPedestrianLed(pedestreSolicit);
+			publishAll("VERMELHO", "VERMELHO", "AMARELO", "VERMELHO", "AMARELO", pedestreSolicit, "NORMAL");
+
+			vTaskDelay(pdMS_TO_TICKS(T_AMARELO));
+
+			if (modoAtencao) break;
+
+			if (pedestreSolicit)
+			{
+				estadoAtual = PEDESTRE_FASE;
+				pedestreSolicit = false;
+			}
+			else
+			{
+				estadoAtual = TEMPO3_VERDE;
+			}
+			break;
+		}
+
+		// ======================================================
+		// 3º TEMPO: S1=VM, S2=VD, S3=VM, S4=VD, S5=VD
+		// ======================================================
+		case TEMPO3_VERDE:
+		{
+			// S1=VM, S2=VD, S3=VM, S4=VD, S5=VD
+			setChip1(true, false, false);    // S1=VM
+			chip1.digitalWrite(S2_VM, HIGH);
+			chip1.digitalWrite(S2_AM, HIGH);
+			chip1.digitalWrite(S2_VD, LOW);  // S2_VD=ON
+			chip1.digitalWrite(S3_VD, HIGH);
+			setChip2(false, false, true);     // S4=VD
+			chip2.digitalWrite(S5_VM, HIGH);
+			chip2.digitalWrite(S5_AM, HIGH);
+			chip2.digitalWrite(S5_VD, LOW);  // S5_VD=ON
+			chip2.digitalWrite(S3_AM, HIGH);
+			chip2.digitalWrite(S3_VM, LOW);   // S3_VM=ON
+			
+			setPedestrianLed(true);
+			publishAll("VERMELHO", "VERDE", "VERMELHO", "VERDE", "VERDE", false, "NORMAL");
 
 			TickType_t inicio = xTaskGetTickCount();
 			TickType_t duracao = pdMS_TO_TICKS(T_VERDE_PRO);
 
 			while ((xTaskGetTickCount() - inicio) < duracao)
 			{
-				if (modoAtencao)
-					break;
-				if (pedestreSolicit)
-					break;
+				if (modoAtencao) break;
+				if (pedestreSolicit) break;
 				vTaskDelay(pdMS_TO_TICKS(100));
 			}
 
-			if (modoAtencao)
-				break;
-
-			estadoAtual = PRO_AMARELO;
+			if (modoAtencao) break;
+			estadoAtual = TEMPO3_AMARELO;
 			break;
 		}
 
-		// --------------------------------------------------
-		// PRO_AMARELO: Protásio=AMARELO (transição)
-		// S1=VERMELHO, S4=AMARELO
-		// --------------------------------------------------
-		case PRO_AMARELO:
+		case TEMPO3_AMARELO:
 		{
-			setChip1(true, false, false);
-			setChip2(false, true, false); // PRO AM
+			// S2=AM, S4=AM, S5=AM (transição VD→VM)
+			setChip1(true, false, false);    // S1=VM
+			chip1.digitalWrite(S2_VM, HIGH);
+			chip1.digitalWrite(S2_AM, LOW);   // S2_AM=ON
+			chip1.digitalWrite(S2_VD, HIGH);
+			chip1.digitalWrite(S3_VD, HIGH);
+			setChip2(false, true, false);     // S4_AM=ON
+			chip2.digitalWrite(S5_VM, HIGH);
+			chip2.digitalWrite(S5_AM, LOW);    // S5_AM=ON
+			chip2.digitalWrite(S5_VD, HIGH);
+			chip2.digitalWrite(S3_AM, HIGH);
+			chip2.digitalWrite(S3_VM, LOW);    // S3_VM=ON
+			
 			setPedestrianLed(pedestreSolicit);
-			// S1=VERMELHO, S4=AMARELO, pedestre=pedestreSolicit
-			publishAll("VERMELHO", "VERMELHO", "VERMELHO", "AMARELO", "VERMELHO", pedestreSolicit, "NORMAL");
+			publishAll("VERMELHO", "AMARELO", "VERMELHO", "AMARELO", "AMARELO", pedestreSolicit, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_AMARELO));
 
-			if (modoAtencao)
-				break;
+			if (modoAtencao) break;
 
 			if (pedestreSolicit)
 			{
@@ -491,34 +596,42 @@ void taskSemaforo(void *pvParameters)
 			}
 			else
 			{
-				estadoAtual = SAT_VERDE;
+				estadoAtual = TEMPO1_VERDE;
 			}
 			break;
 		}
 
-		// --------------------------------------------------
-		// PEDESTRE_FASE: todos vermelhos, pedestre atravessa
-		// Todos S1-S5 = VERMELHO
-		// --------------------------------------------------
+		// ======================================================
+		// PEDESTRE: Todos VM
+		// ======================================================
 		case PEDESTRE_FASE:
 		{
 			setChip1(true, false, false);
-			setChip2(true, false, false); // PRO VM
+			chip1.digitalWrite(S2_VM, LOW);
+			chip1.digitalWrite(S2_AM, HIGH);
+			chip1.digitalWrite(S2_VD, HIGH);
+			chip1.digitalWrite(S3_VD, HIGH);
+			setChip2(true, false, false);
+			chip2.digitalWrite(S5_VM, LOW);
+			chip2.digitalWrite(S5_AM, HIGH);
+			chip2.digitalWrite(S5_VD, HIGH);
+			chip2.digitalWrite(S3_AM, HIGH);
+			chip2.digitalWrite(S3_VM, LOW);
+			
 			setPedestrianLed(true);
-			// Todos vermelhos, pedestre=true (atravessando)
 			publishAll("VERMELHO", "VERMELHO", "VERMELHO", "VERMELHO", "VERMELHO", true, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_PEDESTRE));
 
 			if (!modoAtencao)
 			{
-				estadoAtual = SAT_VERDE; // retoma ciclo normal
+				estadoAtual = TEMPO1_VERDE; // Volta para 1º tempo
 			}
 			break;
 		}
 
 		default:
-			estadoAtual = SAT_VERDE;
+			estadoAtual = TEMPO1_VERDE;
 			break;
 		}
 	}
