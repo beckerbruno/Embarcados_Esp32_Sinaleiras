@@ -96,15 +96,15 @@ enum EstadoSemaforo
 	TEMPO1_VERDE,
 	TEMPO1_AMARELO,  // Transição para 2º tempo
 	
-	// 2º TEMPO: S1=VM, S2=VM, S3=VD, S4=VM, S5=VD  
+	// 2º TEMPO: S1=VM, S2=VD, S3=VD, S4=VM, S5=VD  
 	TEMPO2_VERDE,
 	TEMPO2_AMARELO,  // Transição para 3º tempo
 	
-	// 3º TEMPO: S1=VM, S2=VD, S3=VM, S4=VD, S5=VD
+	// 3º TEMPO: S1=VM, S2=VM, S3=VM, S4=VD, S5=VD
 	TEMPO3_VERDE,
 	TEMPO3_AMARELO,  // Transição para 1º tempo ou pedestre
 	
-	PEDESTRE_FASE,   // Todos vermelhos, pedestre atravessa
+	PEDESTRE_FASE,   // S1=VM, S2=VD, S3=VM, S4=VM, S5=VM (pedestre atravessa)
 	ATENCAO		     // Todos amarelo piscante 1 Hz
 };
 
@@ -386,11 +386,11 @@ inline void setPed(bool active)
 // ============================================================
 // Task Semáforo — FSM principal com 3 tempos
 // ============================================================
-// Sequência conforme imagem:
+// Sequência conforme tabela:
 // 1º TEMPO: S1=VD, S2=VD, S3=VM, S4=VM, S5=VM
-// 2º TEMPO: S1=VM, S2=VM, S3=VD, S4=VM, S5=VD
-// 3º TEMPO: S1=VM, S2=VD, S3=VM, S4=VD, S5=VD
-// PEDESTRE: Todos VM
+// 2º TEMPO: S1=VM, S2=VD, S3=VD, S4=VM, S5=VD
+// 3º TEMPO: S1=VM, S2=VM, S3=VM, S4=VD, S5=VD
+// CHAVE PEDESTRE: S1=VM, S2=VD, S3=VM, S4=VM, S5=VM
 // ============================================================
 void taskSemaforo(void *pvParameters)
 {
@@ -595,15 +595,15 @@ void taskSemaforo(void *pvParameters)
 		}
 
 		// ======================================================
-		// PEDESTRE: Todos VM
+		// PEDESTRE: S1=VM, S2=VD, S3=VM, S4=VM, S5=VM
 		// ======================================================
 		case PEDESTRE_FASE:
 		{
-			setS1(true, false, false);
-			setS2(true, false, false);
-			setS3(true, false, false);
-			setS4(true, false, false);
-			setS5(true, false, false);
+			setS1(true, false, false);   // S1=VM
+			setS2(false, false, true);   // S2=VD
+			setS3(true, false, false);   // S3=VM
+			setS4(true, false, false);   // S4=VM
+			setS5(true, false, false);   // S5=VM
 			setPed(true);
 			publishAll("VERMELHO", "VERDE", "VERMELHO", "VERMELHO", "VERMELHO", true, "NORMAL");
 
