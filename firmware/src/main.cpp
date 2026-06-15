@@ -430,7 +430,7 @@ void taskSemaforo(void *pvParameters)
 		switch (estadoAtual)
 		{
 		// ======================================================
-		// 1º TEMPO: S1=VD, S2=VD, S3=VM, S4=VM, S5=VM
+		// 1º TEMPO
 		// ======================================================
 		case TEMPO1_VERDE:
 		{
@@ -459,9 +459,9 @@ void taskSemaforo(void *pvParameters)
 
 		case TEMPO1_AMARELO:
 		{
-			// S1=AM, S2=AM (transição VD→VM)
+			// S2=AM (transição VD→VM)
 			setS1(false, true, false);   // S1=AM
-			setS2(false, true, false);   // S2=AM
+			setS2(false, false, true);   // S2=VD
 			setS3(true, false, false);   // S3=VM
 			setS4(true, false, false);   // S4=VM
 			setS5(true, false, false);   // S5=VM
@@ -485,12 +485,12 @@ void taskSemaforo(void *pvParameters)
 		}
 
 		// ======================================================
-		// 2º TEMPO: S1=VM, S2=VM, S3=VD, S4=VM, S5=VD
+		// 2º TEMPO
 		// ======================================================
 		case TEMPO2_VERDE:
 		{
 			setS1(true, false, false);   // S1=VM
-			setS2(true, false, false);   // S2=VM
+			setS2(false, false, true);   // S2=VD
 			setS3(false, false, true);   // S3=VD
 			setS4(true, false, false);   // S4=VM
 			setS5(false, false, true);   // S5=VD
@@ -514,12 +514,12 @@ void taskSemaforo(void *pvParameters)
 
 		case TEMPO2_AMARELO:
 		{
-			// S3=AM, S5=AM (transição VD→VM)
+			// S2=AM, S3=AM (transição VD→VM)
 			setS1(true, false, false);   // S1=VM
-			setS2(true, false, false);   // S2=VM
+			setS2(false, true, false);   // S2=AM
 			setS3(false, true, false);   // S3=AM
 			setS4(true, false, false);   // S4=VM
-			setS5(false, true, false);   // S5=AM
+			setS5(false, false, true);   // S5=VD
 			setPed(pedestreSolicit);
 			publishAll("VERMELHO", "AMARELO", "AMARELO", "VERMELHO", "VERDE", pedestreSolicit, "NORMAL");
 
@@ -540,12 +540,12 @@ void taskSemaforo(void *pvParameters)
 		}
 
 		// ======================================================
-		// 3º TEMPO: S1=VM, S2=VD, S3=VM, S4=VD, S5=VD
+		// 3º TEMPO
 		// ======================================================
 		case TEMPO3_VERDE:
 		{
 			setS1(true, false, false);   // S1=VM
-			setS2(false, false, true);   // S2=VD
+			setS2(true, false, false);   // S2=VM
 			setS3(true, false, false);   // S3=VM
 			setS4(false, false, true);   // S4=VD
 			setS5(false, false, true);   // S5=VD
@@ -569,9 +569,9 @@ void taskSemaforo(void *pvParameters)
 
 		case TEMPO3_AMARELO:
 		{
-			// S2=AM, S4=AM, S5=AM (transição VD→VM)
+			// S4=AM, S5=AM (transição VD→VM)
 			setS1(true, false, false);   // S1=VM
-			setS2(false, true, false);   // S2=AM
+			setS2(true, false, false);   // S2=VM
 			setS3(true, false, false);   // S3=VM
 			setS4(false, true, false);   // S4=AM
 			setS5(false, true, false);   // S5=AM
