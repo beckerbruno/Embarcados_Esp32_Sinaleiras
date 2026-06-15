@@ -43,7 +43,7 @@ const char *TOPIC_COMANDO = "embarcados/pucrs/semaforo/comando";
 //   P2..P4 = sinaleira 2 (vermelho, amarelo, verde)
 //   P5..P7 = sinaleira 3 (vermelho, amarelo, verde)
 //
-// ATENÇÃO: saída do PCF8574 ligada ao CÁTODO → LOW = LED ACESO
+// ATENÇÃO: saída do PCF8574 ligada ao ÂNODO → HIGH = LED ACESO
 // ============================================================
 PCF8574 chip1(0x38);
 PCF8574 chip2(0x39);
@@ -164,9 +164,12 @@ void setup()
 	chip1.begin();
 	chip2.begin();
 
-	// Todos os LEDs apagados no início (HIGH = LED apagado = 0xFF)
-	escreveByte(0x38, chip1State);
-	escreveByte(0x39, chip2State);
+	// Todos os LEDs apagados no início (LOW = LED apagado)
+	for (int i = 0; i < 8; i++)
+	{
+		chip1.digitalWrite(i, LOW);
+		chip2.digitalWrite(i, LOW);
+	}
 
 	pinMode(PIN_BTN_PED, INPUT_PULLUP);
 
@@ -202,6 +205,19 @@ void connectWiFi()
 		Serial.print(".");
 	}
 	Serial.printf("\n[WiFi] Conectado. IP: %s\n", WiFi.localIP().toString().c_str());
+	Serial.println("[WiFi] Sucesso! Acendendo todos os LEDs por 2 segundos...");
+	for (int i = 0; i < 8; i++)
+	{
+		chip1.digitalWrite(i, HIGH);  // HIGH = aceso
+		chip2.digitalWrite(i, HIGH);
+	}
+	vTaskDelay(pdMS_TO_TICKS(2000));
+	for (int i = 0; i < 8; i++)
+	{
+		chip1.digitalWrite(i, LOW);  // LOW = apagado
+		chip2.digitalWrite(i, LOW);
+	}
+	Serial.println("[WiFi] LEDs desligados. Seguindo com o programa.");
 }
 
 void connectMQTT()
@@ -434,6 +450,12 @@ void taskSemaforo(void *pvParameters)
 		// ======================================================
 		case TEMPO1_VERDE:
 		{
+			setS1(false, false, true);   // S1=VD
+			setS2(false, false, true);   // S2=VD
+			setS3(true, false, false);   // S3=VM
+			setS4(true, false, false);   // S4=VM
+			setS5(true, false, false);   // S5=VM
+			setPed(true);
 			setS1(false, false, true);   // S1=VD
 			setS2(false, false, true);   // S2=VD
 			setS3(true, false, false);   // S3=VM
