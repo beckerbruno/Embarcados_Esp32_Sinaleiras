@@ -60,7 +60,7 @@ PCF8574 chip2(0x39);
 
 // Pinagem do chip2
 #define S1_AM 0
-#define S2_VM 1
+#define S1_VM 1
 #define S4_VD 2
 #define S4_AM 3
 #define S4_VM 4
@@ -94,18 +94,18 @@ enum EstadoSemaforo
 {
 	// 1º TEMPO: S1=VD, S2=VD, S3=VM, S4=VM, S5=VM
 	TEMPO1_VERDE,
-	TEMPO1_AMARELO,  // Transição para 2º tempo
-	
-	// 2º TEMPO: S1=VM, S2=VD, S3=VD, S4=VM, S5=VD  
+	TEMPO1_AMARELO, // Transição para 2º tempo
+
+	// 2º TEMPO: S1=VM, S2=VD, S3=VD, S4=VM, S5=VD
 	TEMPO2_VERDE,
-	TEMPO2_AMARELO,  // Transição para 3º tempo
-	
+	TEMPO2_AMARELO, // Transição para 3º tempo
+
 	// 3º TEMPO: S1=VM, S2=VM, S3=VM, S4=VD, S5=VD
 	TEMPO3_VERDE,
-	TEMPO3_AMARELO,  // Transição para 1º tempo ou pedestre
-	
-	PEDESTRE_FASE,   // S1=VM, S2=VD, S3=VM, S4=VM, S5=VM (pedestre atravessa)
-	ATENCAO		     // Todos amarelo piscante 1 Hz
+	TEMPO3_AMARELO, // Transição para 1º tempo ou pedestre
+
+	PEDESTRE_FASE, // S1=VM, S2=VD, S3=VM, S4=VM, S5=VM (pedestre atravessa)
+	ATENCAO		   // Todos amarelo piscante 1 Hz
 };
 
 volatile EstadoSemaforo estadoAtual = TEMPO1_VERDE;
@@ -135,7 +135,7 @@ uint8_t chip2State = 0xFF;
 // ============================================================
 void connectWiFi();
 void connectMQTT();
-void publishAll(const char *s1, const char *s2, const char *s3, 
+void publishAll(const char *s1, const char *s2, const char *s3,
 				const char *s4, const char *s5, bool pedestre, const char *modo);
 void setChip1(bool vmSat, bool amSat, bool vdSat);
 void setChip2(bool vmPro, bool amPro, bool vdPro);
@@ -145,13 +145,12 @@ void taskMQTT(void *pvParameters);
 void taskSemaforo(void *pvParameters);
 void taskBotaoPedestre(void *pvParameters);
 
-	void escreveByte(uint8_t endereco, uint8_t valor)
-	{
-		Wire.beginTransmission(endereco);
-		Wire.write(valor);
-		Wire.endTransmission();
-	}
-
+void escreveByte(uint8_t endereco, uint8_t valor)
+{
+	Wire.beginTransmission(endereco);
+	Wire.write(valor);
+	Wire.endTransmission();
+}
 
 // ============================================================
 // Setup
@@ -206,8 +205,8 @@ void connectWiFi()
 
 void connectMQTT()
 {
-	mqttClient.setKeepAlive(60);  // Keepalive de 60 segundos
-	
+	mqttClient.setKeepAlive(60); // Keepalive de 60 segundos
+
 	while (!mqttClient.connected())
 	{
 		Serial.print("[MQTT] Conectando ao broker...");
@@ -243,11 +242,11 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 	{
 		// Parse JSON do comando - remove espaços para facilitar parsing
 		String msgStr = String(msg);
-		msgStr.replace(" ", ""); // Remove todos os espaços
+		msgStr.replace(" ", "");   // Remove todos os espaços
 		msgStr.replace("'", "\""); // Troca aspas simples por duplas (se houver)
-		
+
 		Serial.printf("[MQTT] Processando: %s\n", msgStr.c_str());
-		
+
 		// Verifica modo PISCANTE/NORMAL/ATENCAO
 		if (msgStr.indexOf("\"modo\":\"PISCANTE\"") >= 0 || msgStr.indexOf("\"modo\":\"ATENCAO\"") >= 0)
 		{
@@ -261,7 +260,7 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 			modoPendente = true;
 			Serial.println("[MQTT] Comando: Modo NORMAL ativado");
 		}
-		
+
 		// Verifica comando de pedestre
 		if (msgStr.indexOf("\"pedestre\":true") >= 0 || msgStr.indexOf("\"pedestre\":\"SOLICITAR\"") >= 0)
 		{
@@ -296,24 +295,23 @@ void taskMQTT(void *pvParameters)
 // Publica status de todos os semáforos em JSON unificado
 // ============================================================
 // Mapeamento: S1=S1 (Saturnino), S2=S2, S3=S3, S4=S4 (Protásio), S5=S5
-void publishAll(const char *s1, const char *s2, const char *s3, 
+void publishAll(const char *s1, const char *s2, const char *s3,
 				const char *s4, const char *s5, bool pedestre, const char *modo)
 {
 	if (xSemaphoreTake(xMqttMutex, pdMS_TO_TICKS(300)))
 	{
 		// Monta JSON no formato do modelo Python
 		char json[512];
-		snprintf(json, sizeof(json), 
-			"{\"s1\":\"%s\",\"s2\":\"%s\",\"s3\":\"%s\",\"s4\":\"%s\",\"s5\":\"%s\",\"pedestre\":%s,\"modo\":\"%s\"}",
-			s1, s2, s3, s4, s5, pedestre ? "true" : "false", modo);
-		
+		snprintf(json, sizeof(json),
+				 "{\"s1\":\"%s\",\"s2\":\"%s\",\"s3\":\"%s\",\"s4\":\"%s\",\"s5\":\"%s\",\"pedestre\":%s,\"modo\":\"%s\"}",
+				 s1, s2, s3, s4, s5, pedestre ? "true" : "false", modo);
+
 		mqttClient.publish(TOPIC_STATUS, json, true);
 		xSemaphoreGive(xMqttMutex);
 	}
-	Serial.printf("[FSM] s1=%s s2=%s s3=%s s4=%s s5=%s PED=%s MODO=%s\n", 
-		s1, s2, s3, s4, s5, pedestre ? "true" : "false", modo);
+	Serial.printf("[FSM] s1=%s s2=%s s3=%s s4=%s s5=%s PED=%s MODO=%s\n",
+				  s1, s2, s3, s4, s5, pedestre ? "true" : "false", modo);
 }
-
 
 // ============================================================
 // Helpers de sinaleiras usando escreveByte (LOW = LED ACESO)
@@ -324,56 +322,114 @@ void publishAll(const char *s1, const char *s2, const char *s3,
 inline void setBit(uint8_t &byteVal, uint8_t bitPos, bool value)
 {
 	if (value)
-		byteVal &= ~(1 << bitPos);  // LOW = aceso
+		byteVal &= ~(1 << bitPos); // LOW = aceso
 	else
-		byteVal |= (1 << bitPos);   // HIGH = apagado
+		byteVal |= (1 << bitPos); // HIGH = apagado
 }
 
 inline void setS1(bool vm, bool am, bool vd)
 {
-	// S1_VD=bit7 no chip1; S1_AM=bit0 no chip2 (S1_VM não definido na nova pinagem)
-	setBit(chip1State, 7, vd);
-	setBit(chip2State, 0, am);
-	// VM não está definido na nova pinagem - assumindo que não existe ou está em outro pino
+	// VD no chip 1 (Bit 7)
+	if (vd)
+		chip1State &= ~(1 << 7);
+	else
+		chip1State |= (1 << 7);
+
+	// AM no chip 2 (Bit 0)
+	if (am)
+		chip2State &= ~(1 << 0);
+	else
+		chip2State |= (1 << 0);
+
+	if (vm)
+		chip2State &= ~(1 << 1);
+	else
+		chip2State |= (1 << 1);
+
 	escreveByte(0x38, chip1State);
 	escreveByte(0x39, chip2State);
 }
 
 inline void setS2(bool vm, bool am, bool vd)
 {
-	// S2_VM=bit6, S2_AM=bit5, S2_VD=bit4 no chip1; S2_VM=bit1 no chip2
-	setBit(chip1State, 6, vm);  // Prioridade: chip1
-	setBit(chip1State, 5, am);
-	setBit(chip1State, 4, vd);
-	setBit(chip2State, 1, vm);  // Também atualiza chip2 bit 1
+	// Prioridade: chip 1 (VM = Bit 6, AM = Bit 5, VD = Bit 4)
+	if (vm)
+		chip1State &= ~(1 << 6);
+	else
+		chip1State |= (1 << 6);
+	if (am)
+		chip1State &= ~(1 << 5);
+	else
+		chip1State |= (1 << 5);
+	if (vd)
+		chip1State &= ~(1 << 4);
+	else
+		chip1State |= (1 << 4);
+
+	// Também atualiza chip 2 bit 1 (VM redundante, conforme seu código)
+	if (vm)
+		chip2State &= ~(1 << 1);
+	else
+		chip2State |= (1 << 1);
+
 	escreveByte(0x38, chip1State);
 	escreveByte(0x39, chip2State);
 }
 
 inline void setS3(bool vm, bool am, bool vd)
 {
-	// S3_VM=bit3, S3_AM=bit2, S3_VD=bit1 no chip1
-	setBit(chip1State, 3, vm);
-	setBit(chip1State, 2, am);
-	setBit(chip1State, 1, vd);
+	// Semáforo 3 inteiro no chip 1 (VM = Bit 3, AM = Bit 2, VD = Bit 1)
+	if (vm)
+		chip1State &= ~(1 << 3);
+	else
+		chip1State |= (1 << 3);
+	if (am)
+		chip1State &= ~(1 << 2);
+	else
+		chip1State |= (1 << 2);
+	if (vd)
+		chip1State &= ~(1 << 1);
+	else
+		chip1State |= (1 << 1);
+
 	escreveByte(0x38, chip1State);
 }
 
 inline void setS4(bool vm, bool am, bool vd)
 {
-	// S4_VM=bit4, S4_AM=bit3, S4_VD=bit2 no chip2
-	setBit(chip2State, 4, vm);
-	setBit(chip2State, 3, am);
-	setBit(chip2State, 2, vd);
+	// Semáforo 4 inteiro no chip 2 (VM = Bit 4, AM = Bit 3, VD = Bit 2)
+	if (vm)
+		chip2State &= ~(1 << 4);
+	else
+		chip2State |= (1 << 4);
+	if (am)
+		chip2State &= ~(1 << 3);
+	else
+		chip2State |= (1 << 3);
+	if (vd)
+		chip2State &= ~(1 << 2);
+	else
+		chip2State |= (1 << 2);
+
 	escreveByte(0x39, chip2State);
 }
 
 inline void setS5(bool vm, bool am, bool vd)
 {
-	// S5_VM=bit7, S5_AM=bit6, S5_VD=bit5 no chip2
-	setBit(chip2State, 7, vm);
-	setBit(chip2State, 6, am);
-	setBit(chip2State, 5, vd);
+	// Semáforo 5 inteiro no chip 2 (VM = Bit 7, AM = Bit 6, VD = Bit 5)
+	if (vm)
+		chip2State &= ~(1 << 7);
+	else
+		chip2State |= (1 << 7);
+	if (am)
+		chip2State &= ~(1 << 6);
+	else
+		chip2State |= (1 << 6);
+	if (vd)
+		chip2State &= ~(1 << 5);
+	else
+		chip2State |= (1 << 5);
+
 	escreveByte(0x39, chip2State);
 }
 
@@ -434,11 +490,11 @@ void taskSemaforo(void *pvParameters)
 		// ======================================================
 		case TEMPO1_VERDE:
 		{
-			setS1(false, false, true);   // S1=VD
-			setS2(false, false, true);   // S2=VD
-			setS3(true, false, false);   // S3=VM
-			setS4(true, false, false);   // S4=VM
-			setS5(true, false, false);   // S5=VM
+			setS1(false, false, true); // S1=VD
+			setS2(false, false, true); // S2=VD
+			setS3(true, false, false); // S3=VM
+			setS4(true, false, false); // S4=VM
+			setS5(true, false, false); // S5=VM
 			setPed(true);
 			publishAll("VERDE", "VERDE", "VERMELHO", "VERMELHO", "VERMELHO", false, "NORMAL");
 
@@ -447,12 +503,15 @@ void taskSemaforo(void *pvParameters)
 
 			while ((xTaskGetTickCount() - inicio) < duracao)
 			{
-				if (modoAtencao) break;
-				if (pedestreSolicit) break;
+				if (modoAtencao)
+					break;
+				if (pedestreSolicit)
+					break;
 				vTaskDelay(pdMS_TO_TICKS(100));
 			}
 
-			if (modoAtencao) break;
+			if (modoAtencao)
+				break;
 			estadoAtual = TEMPO1_AMARELO;
 			break;
 		}
@@ -460,17 +519,18 @@ void taskSemaforo(void *pvParameters)
 		case TEMPO1_AMARELO:
 		{
 			// S2=AM (transição VD→VM)
-			setS1(false, true, false);   // S1=AM
-			setS2(false, false, true);   // S2=VD
-			setS3(true, false, false);   // S3=VM
-			setS4(true, false, false);   // S4=VM
-			setS5(true, false, false);   // S5=VM
+			setS1(false, true, false); // S1=AM
+			setS2(false, false, true); // S2=VD
+			setS3(true, false, false); // S3=VM
+			setS4(true, false, false); // S4=VM
+			setS5(true, false, false); // S5=VM
 			setPed(pedestreSolicit);
 			publishAll("AMARELO", "VERDE", "VERMELHO", "VERMELHO", "VERMELHO", pedestreSolicit, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_AMARELO));
 
-			if (modoAtencao) break;
+			if (modoAtencao)
+				break;
 
 			if (pedestreSolicit)
 			{
@@ -489,11 +549,11 @@ void taskSemaforo(void *pvParameters)
 		// ======================================================
 		case TEMPO2_VERDE:
 		{
-			setS1(true, false, false);   // S1=VM
-			setS2(false, false, true);   // S2=VD
-			setS3(false, false, true);   // S3=VD
-			setS4(true, false, false);   // S4=VM
-			setS5(false, false, true);   // S5=VD
+			setS1(true, false, false); // S1=VM
+			setS2(false, false, true); // S2=VD
+			setS3(false, false, true); // S3=VD
+			setS4(true, false, false); // S4=VM
+			setS5(false, false, true); // S5=VD
 			setPed(true);
 			publishAll("VERMELHO", "VERDE", "VERDE", "VERMELHO", "VERDE", false, "NORMAL");
 
@@ -502,12 +562,15 @@ void taskSemaforo(void *pvParameters)
 
 			while ((xTaskGetTickCount() - inicio) < duracao)
 			{
-				if (modoAtencao) break;
-				if (pedestreSolicit) break;
+				if (modoAtencao)
+					break;
+				if (pedestreSolicit)
+					break;
 				vTaskDelay(pdMS_TO_TICKS(100));
 			}
 
-			if (modoAtencao) break;
+			if (modoAtencao)
+				break;
 			estadoAtual = TEMPO2_AMARELO;
 			break;
 		}
@@ -515,17 +578,18 @@ void taskSemaforo(void *pvParameters)
 		case TEMPO2_AMARELO:
 		{
 			// S2=AM, S3=AM (transição VD→VM)
-			setS1(true, false, false);   // S1=VM
-			setS2(false, true, false);   // S2=AM
-			setS3(false, true, false);   // S3=AM
-			setS4(true, false, false);   // S4=VM
-			setS5(false, false, true);   // S5=VD
+			setS1(true, false, false); // S1=VM
+			setS2(false, true, false); // S2=AM
+			setS3(false, true, false); // S3=AM
+			setS4(true, false, false); // S4=VM
+			setS5(false, false, true); // S5=VD
 			setPed(pedestreSolicit);
 			publishAll("VERMELHO", "AMARELO", "AMARELO", "VERMELHO", "VERDE", pedestreSolicit, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_AMARELO));
 
-			if (modoAtencao) break;
+			if (modoAtencao)
+				break;
 
 			if (pedestreSolicit)
 			{
@@ -544,11 +608,11 @@ void taskSemaforo(void *pvParameters)
 		// ======================================================
 		case TEMPO3_VERDE:
 		{
-			setS1(true, false, false);   // S1=VM
-			setS2(true, false, false);   // S2=VM
-			setS3(true, false, false);   // S3=VM
-			setS4(false, false, true);   // S4=VD
-			setS5(false, false, true);   // S5=VD
+			setS1(true, false, false); // S1=VM
+			setS2(true, false, false); // S2=VM
+			setS3(true, false, false); // S3=VM
+			setS4(false, false, true); // S4=VD
+			setS5(false, false, true); // S5=VD
 			setPed(true);
 			publishAll("VERMELHO", "VERMELHO", "VERMELHO", "VERDE", "VERDE", false, "NORMAL");
 
@@ -557,12 +621,15 @@ void taskSemaforo(void *pvParameters)
 
 			while ((xTaskGetTickCount() - inicio) < duracao)
 			{
-				if (modoAtencao) break;
-				if (pedestreSolicit) break;
+				if (modoAtencao)
+					break;
+				if (pedestreSolicit)
+					break;
 				vTaskDelay(pdMS_TO_TICKS(100));
 			}
 
-			if (modoAtencao) break;
+			if (modoAtencao)
+				break;
 			estadoAtual = TEMPO3_AMARELO;
 			break;
 		}
@@ -570,17 +637,18 @@ void taskSemaforo(void *pvParameters)
 		case TEMPO3_AMARELO:
 		{
 			// S4=AM, S5=AM (transição VD→VM)
-			setS1(true, false, false);   // S1=VM
-			setS2(true, false, false);   // S2=VM
-			setS3(true, false, false);   // S3=VM
-			setS4(false, true, false);   // S4=AM
-			setS5(false, true, false);   // S5=AM
+			setS1(true, false, false); // S1=VM
+			setS2(true, false, false); // S2=VM
+			setS3(true, false, false); // S3=VM
+			setS4(false, true, false); // S4=AM
+			setS5(false, true, false); // S5=AM
 			setPed(pedestreSolicit);
 			publishAll("VERMELHO", "VERMELHO", "VERMELHO", "AMARELO", "AMARELO", pedestreSolicit, "NORMAL");
 
 			vTaskDelay(pdMS_TO_TICKS(T_AMARELO));
 
-			if (modoAtencao) break;
+			if (modoAtencao)
+				break;
 
 			if (pedestreSolicit)
 			{
@@ -599,11 +667,11 @@ void taskSemaforo(void *pvParameters)
 		// ======================================================
 		case PEDESTRE_FASE:
 		{
-			setS1(true, false, false);   // S1=VM
-			setS2(false, false, true);   // S2=VD
-			setS3(true, false, false);   // S3=VM
-			setS4(true, false, false);   // S4=VM
-			setS5(true, false, false);   // S5=VM
+			setS1(true, false, false); // S1=VM
+			setS2(false, false, true); // S2=VD
+			setS3(true, false, false); // S3=VM
+			setS4(true, false, false); // S4=VM
+			setS5(true, false, false); // S5=VM
 			setPed(true);
 			publishAll("VERMELHO", "VERDE", "VERMELHO", "VERMELHO", "VERMELHO", true, "NORMAL");
 
@@ -641,14 +709,14 @@ void taskBotaoPedestre(void *pvParameters)
 			Serial.println("[BTN] Pedestre solicitou travessia");
 
 			// Publica no broker para o supervisório refletir (via JSON unificado)
-			// if (xSemaphoreTake(xMqttMutex, pdMS_TO_TICKS(200)))
-			// {
-			// 	char json[256];
-			// 	snprintf(json, sizeof(json), 
-			// 		"{\"s1\":\"VERMELHO\",\"s2\":\"VERMELHO\",\"s3\":\"VERMELHO\",\"s4\":\"VERMELHO\",\"s5\":\"VERMELHO\",\"pedestre\":true,\"modo\":\"NORMAL\"}");
-			// 	mqttClient.publish(TOPIC_STATUS, json, true);
-			// 	xSemaphoreGive(xMqttMutex);
-			// }
+			if (xSemaphoreTake(xMqttMutex, pdMS_TO_TICKS(200)))
+			{
+				char json[256];
+				snprintf(json, sizeof(json),
+						 "{\"s1\":\"VERMELHO\",\"s2\":\"VERMELHO\",\"s3\":\"VERMELHO\",\"s4\":\"VERMELHO\",\"s5\":\"VERMELHO\",\"pedestre\":true,\"modo\":\"NORMAL\"}");
+				mqttClient.publish(TOPIC_STATUS, json, true);
+				xSemaphoreGive(xMqttMutex);
+			}
 			vTaskDelay(pdMS_TO_TICKS(300)); // debounce
 			estadoAtual = TEMPO1_VERDE;
 		}
